@@ -2,6 +2,7 @@ services:
   - type: web
     name: optra-api
     runtime: node
+    plan: free
     rootDir: api
     buildCommand: npm ci && node_modules/.bin/prisma generate && npm run build
     startCommand: node_modules/.bin/prisma migrate deploy && node dist/index.js
@@ -38,6 +39,7 @@ services:
   - type: web
     name: optra-engine
     runtime: python
+    plan: free
     rootDir: engine
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
