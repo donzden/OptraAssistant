@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from ...core.security import require_internal_key
 from ...schemas.options import MarketSentimentResponse, VixResponse
-from ...services.upstox_client import UpstoxClient
+from ...services.kite_client import KiteClient as UpstoxClient
 
 router = APIRouter(prefix="/market", tags=["market"])
 

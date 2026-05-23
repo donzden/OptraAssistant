@@ -3,7 +3,7 @@ import { z } from 'zod'
 import axios from 'axios'
 import { PrismaClient } from '@prisma/client'
 import { AuthRequest, requireAuth } from '../middleware/requireAuth'
-import { getValidToken } from '../services/upstox.service'
+import { getValidToken } from '../services/kite.service'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -82,51 +82,60 @@ router.delete('/positions/:id', requireAuth, async (req: AuthRequest, res: Respo
   }
 })
 
-// POST /api/v1/portfolio/import-from-upstox
-router.post('/import-from-upstox', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+// POST /api/v1/portfolio/import-from-zerodha
+router.post('/import-from-zerodha', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const token = await getValidToken(req.userId!)
     if (!token) {
-      return res.status(400).json({ message: 'Upstox account not connected. Connect via /api/v1/upstox/auth' })
+      return res.status(400).json({
+        message: 'Zerodha account not connected or session expired (tokens reset at 6 AM IST). Reconnect via /api/v1/kite/auth',
+      })
     }
 
-    const { data } = await axios.get('https://api.upstox.com/v2/portfolio/short-term-positions', {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    const apiKey = process.env.KITE_API_KEY ?? ''
+    const { data } = await axios.get('https://api.kite.trade/portfolio/positions', {
+      headers: {
+        'X-Kite-Version': '3',
+        Authorization: `token ${apiKey}:${token}`,
+      },
     })
 
-    const upstoxPositions: any[] = data.data ?? []
-    const optionPositions = upstoxPositions.filter(
-      (p: any) => p.instrument_type === 'OPTION' && p.quantity !== 0,
+    // Kite returns {net: [...], day: [...]}; use net positions
+    const kitePositions: any[] = data.data?.net ?? []
+    const optionPositions = kitePositions.filter(
+      (p: any) => (p.product === 'NRML' || p.product === 'MIS') && p.quantity !== 0 && p.exchange === 'NFO',
     )
+
+    const LOT_SIZES: Record<string, number> = {
+      NIFTY: 25, BANKNIFTY: 15, FINNIFTY: 40, MIDCPNIFTY: 50,
+    }
 
     let imported = 0
     for (const p of optionPositions) {
-      // Parse instrument key like "NSE_FO|NIFTY25MAY2422000CE"
-      const ikey: string = p.instrument_key ?? ''
-      const matchSymbol = ikey.match(/\|(NIFTY|BANKNIFTY|FINNIFTY)/)
-      const symbol = matchSymbol?.[1] ?? 'NIFTY'
-      const optionType: 'CE' | 'PE' = ikey.endsWith('CE') ? 'CE' : 'PE'
-      const strikeMatch = ikey.match(/(\d+)(CE|PE)$/)
+      // Kite tradingsymbol: NIFTY25MAY2222000CE, BANKNIFTY25MAY2247000PE, etc.
+      const ts: string = p.tradingsymbol ?? ''
+      const symbolMatch = ts.match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY)/)
+      const symbol = symbolMatch?.[1] ?? 'NIFTY'
+      const optionType: 'CE' | 'PE' = ts.endsWith('CE') ? 'CE' : 'PE'
+      const strikeMatch = ts.match(/(\d+)(CE|PE)$/)
       const strike = strikeMatch ? parseFloat(strikeMatch[1]) : 0
-      const expiry = p.expiry ?? new Date().toISOString().split('T')[0]
-      const lots = Math.abs(Math.round(p.quantity / (p.lot_size ?? 50)))
-      const lotSize = p.lot_size ?? 50
+      // Kite expiry is ISO date string: "2025-05-29"
+      const expiry: string = p.expiry ?? new Date().toISOString().split('T')[0]
+      const lotSize = LOT_SIZES[symbol] ?? 50
+      const lots = Math.abs(Math.round(p.quantity / lotSize)) || 1
       const avgPrice = p.average_price ?? 0
       const positionType: 'LONG' | 'SHORT' = p.quantity > 0 ? 'LONG' : 'SHORT'
 
-      if (!strike || !lots) continue
+      if (!strike) continue
 
+      const posId = `kite-${req.userId!}-${ts}`
       await prisma.position.upsert({
-        where: {
-          // unique by user + instrument key
-          // Prisma doesn't support compound on non-unique; use findFirst + create pattern
-          id: `upstox-${req.userId!}-${ikey}`,
-        },
+        where: { id: posId },
         create: {
-          id: `upstox-${req.userId!}-${ikey}`,
+          id: posId,
           userId: req.userId!,
           symbol,
-          instrumentKey: ikey,
+          instrumentKey: ts,
           strike,
           expiry,
           optionType,
@@ -134,7 +143,7 @@ router.post('/import-from-upstox', requireAuth, async (req: AuthRequest, res: Re
           lots,
           lotSize,
           avgPrice,
-          source: 'UPSTOX_IMPORT',
+          source: 'UPSTOX_IMPORT', // kept as-is to avoid schema change; semantically means "broker import"
         },
         update: {
           lots,

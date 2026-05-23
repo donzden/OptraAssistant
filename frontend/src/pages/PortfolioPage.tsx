@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
-import { deletePosition, fetchPortfolioGreeks, fetchPositions, fetchUpstoxStatus } from '@/api/portfolio'
+import { deletePosition, fetchPortfolioGreeks, fetchPositions, fetchZerodhaStatus } from '@/api/portfolio'
 import AddPositionModal from '@/components/Portfolio/AddPositionModal'
 import GreeksDashboard from '@/components/Portfolio/GreeksDashboard'
-import UpstoxConnectBanner from '@/components/Portfolio/UpstoxConnectBanner'
+import ZerodhaConnectBanner from '@/components/Portfolio/UpstoxConnectBanner'
 import type { Position } from '@/types/portfolio'
 
 function fmt(v: number | null | undefined): string {
@@ -61,8 +61,8 @@ export default function PortfolioPage() {
   })
 
   const { data: upstoxStatus } = useQuery({
-    queryKey: ['upstox-status'],
-    queryFn: fetchUpstoxStatus,
+    queryKey: ['kite-status'],
+    queryFn: fetchZerodhaStatus,
   })
 
   const { data: greeks } = useQuery({
@@ -84,7 +84,7 @@ export default function PortfolioPage() {
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['positions'] })
     queryClient.invalidateQueries({ queryKey: ['portfolio-greeks'] })
-    queryClient.invalidateQueries({ queryKey: ['upstox-status'] })
+    queryClient.invalidateQueries({ queryKey: ['kite-status'] })
   }
 
   return (
@@ -108,7 +108,7 @@ export default function PortfolioPage() {
       </div>
 
       {/* Upstox connect banner */}
-      <UpstoxConnectBanner
+      <ZerodhaConnectBanner
         connected={upstoxStatus?.connected ?? false}
         onStatusChange={invalidateAll}
         onImported={invalidateAll}

@@ -20,8 +20,8 @@ export async function deletePosition(id: string): Promise<void> {
   await apiClient.delete(`/portfolio/positions/${id}`)
 }
 
-export async function importFromUpstox(): Promise<{ imported: number; total: number }> {
-  const { data } = await apiClient.post<{ imported: number; total: number }>('/portfolio/import-from-upstox')
+export async function importFromZerodha(): Promise<{ imported: number; total: number }> {
+  const { data } = await apiClient.post<{ imported: number; total: number }>('/portfolio/import-from-zerodha')
   return data
 }
 
@@ -34,11 +34,11 @@ export async function fetchPortfolioGreeks(
   return data
 }
 
-export async function fetchUpstoxStatus(): Promise<{ connected: boolean }> {
-  const { data } = await apiClient.get<{ connected: boolean }>('/upstox/status')
+export async function fetchZerodhaStatus(): Promise<{ connected: boolean }> {
+  const { data } = await apiClient.get<{ connected: boolean }>('/kite/status')
   return data
 }
 
-export async function disconnectUpstox(): Promise<void> {
-  await apiClient.delete('/upstox/disconnect')
+export async function disconnectZerodha(): Promise<void> {
+  await apiClient.delete('/kite/disconnect')
 }

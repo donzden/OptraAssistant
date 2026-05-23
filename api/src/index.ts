@@ -9,7 +9,7 @@ import usersRouter from './routes/users'
 import adminRouter from './routes/admin'
 import marketRouter from './routes/market'
 import portfolioRouter from './routes/portfolio'
-import upstoxRouter from './routes/upstox'
+import kiteRouter from './routes/kite'
 import { errorHandler } from './middleware/errorHandler'
 import { requireAuth } from './middleware/requireAuth'
 
@@ -39,7 +39,7 @@ app.use('/api/v1/users', requireAuth, usersRouter)
 app.use('/api/v1/admin', requireAuth, adminRouter)
 app.use('/api/v1/market', marketRouter)
 app.use('/api/v1/portfolio', portfolioRouter)
-app.use('/api/v1/upstox', upstoxRouter)
+app.use('/api/v1/kite', kiteRouter)
 
 // Health check
 app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
