@@ -29,7 +29,8 @@ async function loginAs(page: Page, role: 'USER' | 'ADMIN' = 'USER') {
 }
 
 /** Intercept all /api/v1 requests with a default 200 response. */
-async function mockApi(page: Page) {
+async function mockApi(page: Page, options: { role?: 'USER' | 'ADMIN' } = {}) {
+  const user = { ...MOCK_USER, role: options.role ?? 'USER' }
   await page.route('**/api/v1/**', async (route) => {
     const url = route.request().url()
     const method = route.request().method()
@@ -41,7 +42,7 @@ async function mockApi(page: Page) {
       return route.fulfill({ status: 200, json: { message: 'Email verified successfully' } })
     }
     if (method === 'POST' && url.includes('/auth/login')) {
-      return route.fulfill({ status: 200, json: { accessToken: 'mock-jwt', user: MOCK_USER } })
+      return route.fulfill({ status: 200, json: { accessToken: 'mock-jwt', user } })
     }
     if (method === 'POST' && url.includes('/auth/logout')) {
       return route.fulfill({ status: 200, json: { message: 'Logged out' } })
@@ -50,7 +51,7 @@ async function mockApi(page: Page) {
       return route.fulfill({ status: 200, json: { accessToken: 'mock-jwt' } })
     }
     if (method === 'GET' && url.includes('/auth/me')) {
-      return route.fulfill({ status: 200, json: MOCK_USER })
+      return route.fulfill({ status: 200, json: user })
     }
     if (method === 'POST' && url.includes('/auth/forgot-password')) {
       return route.fulfill({ status: 200, json: { message: 'If this email is registered, a reset link has been sent.' } })
@@ -65,10 +66,24 @@ async function mockApi(page: Page) {
       return route.fulfill({ status: 200, json: { message: 'Phone verified successfully' } })
     }
     if (method === 'GET' && url.includes('/users/profile')) {
-      return route.fulfill({ status: 200, json: { ...MOCK_USER, phoneVerified: true, phone: '9876543210' } })
+      return route.fulfill({ status: 200, json: { ...user, phoneVerified: true, phone: '9876543210' } })
+    }
+    // Portfolio routes
+    if (url.includes('/portfolio/positions')) {
+      return route.fulfill({ status: 200, json: [] })
+    }
+    if (url.includes('/portfolio/greeks')) {
+      return route.fulfill({ status: 200, json: { positions: [], aggregate: {}, total_pnl: 0 } })
+    }
+    // Admin routes
+    if (url.includes('/admin/stats')) {
+      return route.fulfill({ status: 200, json: { totalUsers: 5, activeUsers: 3, pendingUsers: 1, lockedUsers: 1 } })
+    }
+    if (url.includes('/admin/users')) {
+      return route.fulfill({ status: 200, json: { data: [], total: 0 } })
     }
 
-    // Default: pass through (or 200 for unknown API routes)
+    // Default: 200 for unknown API routes
     return route.fulfill({ status: 200, json: {} })
   })
 }
@@ -76,9 +91,9 @@ async function mockApi(page: Page) {
 // ─── Basic page loads (smoke tests) ──────────────────────────────────────────
 
 test.describe('Auth pages — smoke tests', () => {
-  test('login page loads with sign in heading', async ({ page }) => {
+  test('login page loads with welcome heading', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible()
   })
 
   test('register page shows password strength indicator', async ({ page }) => {
@@ -100,7 +115,7 @@ test.describe('Auth pages — smoke tests', () => {
     await page.goto('/forgot-password')
     await page.fill('input[type="email"]', 'anyone@example.com')
     await page.click('button[type="submit"]')
-    await expect(page.getByText(/check your email/i)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/check your inbox/i)).toBeVisible({ timeout: 5000 })
   })
 })
 
@@ -125,7 +140,7 @@ test.describe('Auth guard', () => {
 test('404 page is shown for unknown routes', async ({ page }) => {
   await page.goto('/this-route-does-not-exist-at-all')
   // Not redirected to login (no auth guard on wildcard route)
-  await expect(page.getByText(/404|not found/i)).toBeVisible()
+  await expect(page.getByRole('heading', { name: /page not found/i })).toBeVisible()
 })
 
 // ─── Happy path: register → verify email → login → logout ─────────────────────
@@ -139,6 +154,7 @@ test.describe('Happy path', () => {
     await page.fill('input[name="name"]', 'Alice Example')
     await page.fill('input[name="email"]', 'alice@example.com')
     await page.fill('input[name="password"]', 'StrongPass1!')
+    await page.fill('input[name="confirmPassword"]', 'StrongPass1!')
     await page.click('button[type="submit"]')
 
     // 2. Redirected to verify-email
@@ -193,8 +209,9 @@ test.describe('Navigation', () => {
       { label: 'Watchlist', href: '/watchlist' },
     ]
 
+    const sidebar = page.locator('aside')
     for (const { href } of expectedLinks) {
-      await expect(page.locator(`a[href="${href}"]`)).toBeVisible()
+      await expect(sidebar.locator(`a[href="${href}"]`)).toBeVisible()
     }
   })
 
@@ -203,10 +220,10 @@ test.describe('Navigation', () => {
     await loginAs(page)
     await page.goto('/dashboard')
 
-    await page.click('a[href="/portfolio"]')
+    await page.locator('aside').locator('a[href="/portfolio"]').click()
     await expect(page).toHaveURL(/\/portfolio/)
 
-    await page.click('a[href="/options-chain"]')
+    await page.locator('aside').locator('a[href="/options-chain"]').click()
     await expect(page).toHaveURL(/\/options-chain/)
   })
 
@@ -231,11 +248,11 @@ test.describe('Admin access control', () => {
   })
 
   test('admin user can access /admin', async ({ page }) => {
-    await mockApi(page)
+    await mockApi(page, { role: 'ADMIN' })
     await loginAs(page, 'ADMIN')
     await page.goto('/admin')
     await expect(page).toHaveURL(/\/admin/)
-    await expect(page.getByRole('heading', { name: /admin/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /admin panel/i })).toBeVisible()
   })
 
   test('admin link not visible in sidebar for non-admin users', async ({ page }) => {
@@ -278,7 +295,7 @@ test.describe('Phone OTP', () => {
     await page.click('button:has-text("Verify")')
 
     // After verification, see the verified badge
-    await expect(page.getByText(/verified/i)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/verified/i).first()).toBeVisible({ timeout: 5000 })
   })
 })
 
@@ -290,7 +307,7 @@ test.describe('Forgot password', () => {
     await page.goto('/forgot-password')
     await page.fill('input[type="email"]', 'user@example.com')
     await page.click('button[type="submit"]')
-    await expect(page.getByText(/check your email/i)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/check your inbox/i)).toBeVisible({ timeout: 5000 })
   })
 
   test('reset password page accepts new password and redirects to login', async ({ page }) => {

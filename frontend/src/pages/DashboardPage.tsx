@@ -34,10 +34,10 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Coming soon placeholder */}
+      {/* Market data placeholder — Sprint 3 */}
       <div className="card p-6 flex flex-col items-center justify-center text-center min-h-[180px] gap-2">
         <TrendingUp className="w-8 h-8 text-slate-600" />
-        <p className="text-slate-400 text-sm">Market data and live Greeks will appear here in Sprint 2</p>
+        <p className="text-slate-400 text-sm">AI strategy recommendations coming in Sprint 3</p>
       </div>
     </div>
   )

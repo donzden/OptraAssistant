@@ -67,7 +67,7 @@ function ComingSoon({ title }: { title: string }) {
     <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
       <div className="text-4xl">🚧</div>
       <h2 className="text-xl font-semibold text-slate-200">{title}</h2>
-      <p className="text-sm">Coming in Sprint 2+</p>
+      <p className="text-sm">Coming in Sprint 3+</p>
     </div>
   )
 }
