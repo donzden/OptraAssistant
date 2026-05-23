@@ -3,10 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
-import { deletePosition, fetchPortfolioGreeks, fetchPositions, fetchZerodhaStatus } from '@/api/portfolio'
+import { deletePosition, fetchPortfolioGreeks, fetchPositions } from '@/api/portfolio'
 import AddPositionModal from '@/components/Portfolio/AddPositionModal'
 import GreeksDashboard from '@/components/Portfolio/GreeksDashboard'
-import ZerodhaConnectBanner from '@/components/Portfolio/UpstoxConnectBanner'
 import type { Position } from '@/types/portfolio'
 
 function fmt(v: number | null | undefined): string {
@@ -35,11 +34,6 @@ function PositionRow({ pos, onDelete }: { pos: Position; onDelete: (id: string) 
       <td className="px-4 py-2.5 text-right">₹{fmt(pos.avgPrice)}</td>
       <td className="px-4 py-2.5 text-right text-slate-400 text-xs">{pos.expiry}</td>
       <td className="px-4 py-2.5 text-center">
-        <span className={clsx('text-xs px-1.5 py-0.5 rounded', pos.source === 'UPSTOX_IMPORT' ? 'bg-indigo-900/40 text-indigo-400' : 'bg-slate-700 text-slate-400')}>
-          {pos.source === 'UPSTOX_IMPORT' ? 'Upstox' : 'Manual'}
-        </span>
-      </td>
-      <td className="px-4 py-2.5 text-center">
         <button
           onClick={() => onDelete(pos.id)}
           className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-all"
@@ -60,11 +54,6 @@ export default function PortfolioPage() {
     queryFn: fetchPositions,
   })
 
-  const { data: upstoxStatus } = useQuery({
-    queryKey: ['kite-status'],
-    queryFn: fetchZerodhaStatus,
-  })
-
   const { data: greeks } = useQuery({
     queryKey: ['portfolio-greeks'],
     queryFn: () => fetchPortfolioGreeks(),
@@ -81,12 +70,6 @@ export default function PortfolioPage() {
     },
   })
 
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['positions'] })
-    queryClient.invalidateQueries({ queryKey: ['portfolio-greeks'] })
-    queryClient.invalidateQueries({ queryKey: ['kite-status'] })
-  }
-
   return (
     <div className="space-y-5 p-4 md:p-6 max-w-screen-xl mx-auto">
       {/* Header */}
@@ -95,7 +78,9 @@ export default function PortfolioPage() {
           <Minus size={20} className="text-indigo-400" />
           <h1 className="text-xl font-bold text-slate-100">Portfolio</h1>
           {positions.length > 0 && (
-            <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">{positions.length} position{positions.length !== 1 ? 's' : ''}</span>
+            <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">
+              {positions.length} position{positions.length !== 1 ? 's' : ''}
+            </span>
           )}
         </div>
         <button
@@ -106,13 +91,6 @@ export default function PortfolioPage() {
           Add Position
         </button>
       </div>
-
-      {/* Upstox connect banner */}
-      <ZerodhaConnectBanner
-        connected={upstoxStatus?.connected ?? false}
-        onStatusChange={invalidateAll}
-        onImported={invalidateAll}
-      />
 
       {/* Greeks dashboard — only show when positions exist */}
       {greeks && positions.length > 0 && (
@@ -128,7 +106,7 @@ export default function PortfolioPage() {
         {positions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 bg-slate-800/40 border border-slate-700 rounded-xl text-slate-500 gap-2">
             <span className="text-3xl">📭</span>
-            <p className="text-sm">No positions yet — add one manually or sync from Upstox</p>
+            <p className="text-sm">No positions yet — use Add Position to get started</p>
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-700">
@@ -142,7 +120,6 @@ export default function PortfolioPage() {
                   <th className="px-4 py-2.5 text-right">Qty</th>
                   <th className="px-4 py-2.5 text-right">Avg Price</th>
                   <th className="px-4 py-2.5 text-right">Expiry</th>
-                  <th className="px-4 py-2.5 text-center">Source</th>
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>
