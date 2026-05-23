@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { PrismaClient } from '@prisma/client'
 import { AppError } from '../middleware/errorHandler'
+import { sendEmailVerificationOtp, sendPasswordResetOtp } from './email.service'
 
 const prisma = new PrismaClient()
 
@@ -20,7 +21,8 @@ export async function register(name: string, email: string, password: string) {
   const passwordHash = await bcrypt.hash(password, 12)
   const user = await prisma.user.create({ data: { name, email, passwordHash } })
 
-  await createOtp(user.id, 'EMAIL_VERIFY')
+  const otp = await createOtp(user.id, 'EMAIL_VERIFY')
+  await sendEmailVerificationOtp(email, name, otp)
   return user
 }
 
@@ -87,11 +89,19 @@ export async function logout(refreshToken: string) {
   await prisma.refreshToken.deleteMany({ where: { token: refreshToken } })
 }
 
+export async function resendEmailOtp(email: string) {
+  const user = await prisma.user.findUnique({ where: { email } })
+  if (!user || user.emailVerified) return // silent
+  const otp = await createOtp(user.id, 'EMAIL_VERIFY')
+  await sendEmailVerificationOtp(email, user.name, otp)
+}
+
 export async function forgotPassword(email: string) {
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user) return // Silent — no enumeration
 
-  await createOtp(user.id, 'PASSWORD_RESET')
+  const otp = await createOtp(user.id, 'PASSWORD_RESET')
+  await sendPasswordResetOtp(email, user.name, otp)
 }
 
 export async function resetPassword(token: string, newPassword: string) {

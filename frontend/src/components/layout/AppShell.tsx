@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Lightbulb, BookOpen, Wrench, Bookmark,
-  BarChart2, Eye, User, Settings, LogOut, Menu, X, ChevronLeft,
-  Bell,
+  BarChart2, Eye, User, LogOut, Menu, ChevronLeft,
+  Bell, ShieldCheck,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { authApi } from '@/api/auth'
@@ -86,8 +86,22 @@ export default function AppShell() {
           ))}
         </nav>
 
-        {/* Profile shortcut */}
-        <div className="border-t border-surface-tertiary p-2">
+        {/* Bottom links */}
+        <div className="border-t border-surface-tertiary p-2 space-y-0.5">
+          {user?.role === 'ADMIN' && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                clsx(
+                  'flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm transition-all duration-150',
+                  isActive ? 'bg-primary-600/20 text-primary-400' : 'text-slate-400 hover:text-slate-100 hover:bg-surface-tertiary/50',
+                )
+              }
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0" />
+              {!collapsed && <span>Admin</span>}
+            </NavLink>
+          )}
           <NavLink
             to="/profile"
             className={({ isActive }) =>

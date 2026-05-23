@@ -32,7 +32,7 @@ router.post('/verify-email', authRateLimit, async (req: Request, res: Response) 
 // POST /auth/resend-email-otp
 router.post('/resend-email-otp', authRateLimit, async (req: Request, res: Response) => {
   const { email } = z.object({ email: z.string().email() }).parse(req.body)
-  await authService.forgotPassword(email) // reuses OTP creation logic
+  await authService.resendEmailOtp(email)
   res.json({ message: 'OTP sent' })
 })
 

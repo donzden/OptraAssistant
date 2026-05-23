@@ -8,6 +8,7 @@ import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
 import ResetPasswordPage from '@/pages/auth/ResetPasswordPage'
 import DashboardPage from '@/pages/DashboardPage'
 import ProfilePage from '@/pages/ProfilePage'
+import AdminPage from '@/pages/admin/AdminPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -18,6 +19,11 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function GuestOnly({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>
+}
+
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  return user?.role === 'ADMIN' ? <>{children}</> : <Navigate to="/dashboard" replace />
 }
 
 export default function App() {
@@ -36,6 +42,7 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
           {/* Sprint 2+ routes — stubs for nav to work */}
           <Route path="/strategies" element={<ComingSoon title="Strategy Recommender" />} />
           <Route path="/library" element={<ComingSoon title="Strategy Library" />} />
