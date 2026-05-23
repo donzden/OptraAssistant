@@ -2,8 +2,10 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
 
+// In dev: VITE_API_URL is unset → relative URL, proxied by Vite to localhost:4000
+// In prod: VITE_API_URL = https://optra-api.onrender.com
 export const apiClient = axios.create({
-  baseURL: '/api/v1',
+  baseURL: `${import.meta.env.VITE_API_URL ?? ''}/api/v1`,
   withCredentials: true, // send httpOnly refresh token cookie
   headers: { 'Content-Type': 'application/json' },
 })

@@ -3,8 +3,8 @@ services:
     name: optra-api
     runtime: node
     rootDir: api
-    buildCommand: npm ci && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && node dist/index.js
+    buildCommand: npm ci && node_modules/.bin/prisma generate && npm run build
+    startCommand: node_modules/.bin/prisma migrate deploy && node dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -16,6 +16,16 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: https://optra-frontend.onrender.com
+      - key: ENGINE_URL
+        value: https://optra-engine.onrender.com
+      - key: INTERNAL_API_KEY
+        generateValue: true
+      - key: KITE_API_KEY
+        sync: false
+      - key: KITE_API_SECRET
+        sync: false
+      - key: KITE_REDIRECT_URI
+        value: https://optra-api.onrender.com/api/v1/kite/callback
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -39,12 +49,12 @@ services:
           name: optra-db
           property: connectionString
       - key: INTERNAL_API_KEY
-        generateValue: true
+        sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: UPSTOX_API_KEY
+      - key: KITE_API_KEY
         sync: false
-      - key: UPSTOX_API_SECRET
+      - key: KITE_API_SECRET
         sync: false
 
   - type: web
@@ -53,6 +63,9 @@ services:
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://optra-api.onrender.com
     routes:
       - type: rewrite
         source: /*
