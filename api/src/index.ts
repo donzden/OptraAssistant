@@ -7,6 +7,9 @@ import { rateLimit } from 'express-rate-limit'
 import authRouter from './routes/auth'
 import usersRouter from './routes/users'
 import adminRouter from './routes/admin'
+import marketRouter from './routes/market'
+import portfolioRouter from './routes/portfolio'
+import upstoxRouter from './routes/upstox'
 import { errorHandler } from './middleware/errorHandler'
 import { requireAuth } from './middleware/requireAuth'
 
@@ -34,6 +37,9 @@ app.use(rateLimit({
 app.use('/api/v1/auth', authRouter)
 app.use('/api/v1/users', requireAuth, usersRouter)
 app.use('/api/v1/admin', requireAuth, adminRouter)
+app.use('/api/v1/market', marketRouter)
+app.use('/api/v1/portfolio', portfolioRouter)
+app.use('/api/v1/upstox', upstoxRouter)
 
 // Health check
 app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))

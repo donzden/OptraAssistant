@@ -45,13 +45,16 @@ model User {
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
-  refreshTokens RefreshToken[]
-  otpTokens     OtpToken[]
-  auditLogs     AuditLog[]
+  refreshTokens    RefreshToken[]
+  otpTokens        OtpToken[]
+  auditLogs        AuditLog[]
+  positions        Position[]
+  upstoxOAuthToken UpstoxOAuthToken?
 
   @@index([email])
   @@map("users")
 }
+
 
 model RefreshToken {
   id        String   @id @default(uuid())
@@ -91,4 +94,50 @@ model AuditLog {
 
   @@index([userId])
   @@map("audit_logs")
+}
+
+enum PositionType {
+  LONG
+  SHORT
+}
+
+enum OptionType {
+  CE
+  PE
+}
+
+model Position {
+  id            String       @id @default(uuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol        String       // NIFTY, BANKNIFTY, etc.
+  instrumentKey String?      // Upstox instrument key for live price lookup
+  strike        Float
+  expiry        String       // YYYY-MM-DD
+  optionType    OptionType
+  positionType  PositionType
+  lots          Int
+  lotSize       Int          @default(50)
+  avgPrice      Float
+  currentPrice  Float?
+  source        String       @default("MANUAL") // MANUAL | UPSTOX_IMPORT
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([userId])
+  @@map("positions")
+}
+
+model UpstoxOAuthToken {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken   String
+  refreshToken  String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("upstox_oauth_tokens")
 }

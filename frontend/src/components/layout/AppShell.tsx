@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Lightbulb, BookOpen, Wrench, Bookmark,
   BarChart2, Eye, User, LogOut, Menu, ChevronLeft,
-  Bell, ShieldCheck,
+  Bell, ShieldCheck, Activity,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { authApi } from '@/api/auth'
@@ -11,11 +11,12 @@ import clsx from 'clsx'
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/options-chain', icon: Activity, label: 'Options Chain' },
+  { to: '/portfolio', icon: BarChart2, label: 'Portfolio' },
   { to: '/strategies', icon: Lightbulb, label: 'Recommender' },
   { to: '/library', icon: BookOpen, label: 'Strategy Library' },
   { to: '/builder', icon: Wrench, label: 'Builder' },
   { to: '/my-strategies', icon: Bookmark, label: 'My Strategies' },
-  { to: '/portfolio', icon: BarChart2, label: 'Portfolio' },
   { to: '/watchlist', icon: Eye, label: 'Watchlist' },
 ]
 

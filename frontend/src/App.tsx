@@ -9,6 +9,8 @@ import ResetPasswordPage from '@/pages/auth/ResetPasswordPage'
 import DashboardPage from '@/pages/DashboardPage'
 import ProfilePage from '@/pages/ProfilePage'
 import AdminPage from '@/pages/admin/AdminPage'
+import OptionsChainPage from '@/pages/OptionsChainPage'
+import PortfolioPage from '@/pages/PortfolioPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -43,12 +45,14 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
-          {/* Sprint 2+ routes — stubs for nav to work */}
+          {/* Sprint 2 */}
+          <Route path="/options-chain" element={<OptionsChainPage />} />
+          <Route path="/portfolio" element={<PortfolioPage />} />
+          {/* Sprint 3+ stubs */}
           <Route path="/strategies" element={<ComingSoon title="Strategy Recommender" />} />
           <Route path="/library" element={<ComingSoon title="Strategy Library" />} />
           <Route path="/builder" element={<ComingSoon title="Strategy Builder" />} />
           <Route path="/my-strategies" element={<ComingSoon title="My Strategies" />} />
-          <Route path="/portfolio" element={<ComingSoon title="Portfolio" />} />
           <Route path="/watchlist" element={<ComingSoon title="Watchlist" />} />
         </Route>
 
