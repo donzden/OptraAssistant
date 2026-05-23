@@ -10,6 +10,7 @@ import adminRouter from './routes/admin'
 import marketRouter from './routes/market'
 import portfolioRouter from './routes/portfolio'
 import kiteRouter from './routes/kite'
+import strategiesRouter from './routes/strategies'
 import { errorHandler } from './middleware/errorHandler'
 import { requireAuth } from './middleware/requireAuth'
 
@@ -40,6 +41,7 @@ app.use('/api/v1/admin', requireAuth, adminRouter)
 app.use('/api/v1/market', marketRouter)
 app.use('/api/v1/portfolio', portfolioRouter)
 app.use('/api/v1/kite', kiteRouter)
+app.use('/api/v1/strategies', strategiesRouter)
 
 // Health check
 app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))

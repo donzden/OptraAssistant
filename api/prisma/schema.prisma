@@ -50,6 +50,7 @@ model User {
   auditLogs        AuditLog[]
   positions        Position[]
   kiteOAuthToken   KiteOAuthToken?
+  favourites       UserStrategyFavourite[]
 
   @@index([email])
   @@map("users")
@@ -140,4 +141,65 @@ model KiteOAuthToken {
   updatedAt    DateTime @updatedAt
 
   @@map("kite_oauth_tokens")
+}
+
+enum StrategyCategory {
+  DIRECTIONAL
+  NON_DIRECTIONAL
+  VOLATILITY
+}
+
+enum StrategyType {
+  DEBIT
+  CREDIT
+  VARIES
+}
+
+enum IVLevel {
+  LOW
+  LOW_NORMAL
+  NORMAL
+  HIGH_NORMAL
+  HIGH
+}
+
+enum RiskLevel {
+  CONSERVATIVE
+  MODERATE
+  AGGRESSIVE
+}
+
+model Strategy {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  category    StrategyCategory
+  type        StrategyType
+  description String
+  outlook     String[]
+  ivLevels    IVLevel[]
+  dteMin      Int?
+  dteMax      Int?
+  riskLevel   RiskLevel
+  legs        Json
+  conditions  Json
+  rules       Json
+  source      String           @default("EXCEL")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  favourites  UserStrategyFavourite[]
+
+  @@map("strategies")
+}
+
+model UserStrategyFavourite {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategyId String
+  strategy   Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, strategyId])
+  @@map("user_strategy_favourites")
 }

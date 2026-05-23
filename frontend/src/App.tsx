@@ -11,6 +11,9 @@ import ProfilePage from '@/pages/ProfilePage'
 import AdminPage from '@/pages/admin/AdminPage'
 import OptionsChainPage from '@/pages/OptionsChainPage'
 import PortfolioPage from '@/pages/PortfolioPage'
+import RecommendationsPage from '@/pages/RecommendationsPage'
+import StrategyLibraryPage from '@/pages/StrategyLibraryPage'
+import StrategyDetailPage from '@/pages/StrategyDetailPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -48,9 +51,11 @@ export default function App() {
           {/* Sprint 2 */}
           <Route path="/options-chain" element={<OptionsChainPage />} />
           <Route path="/portfolio" element={<PortfolioPage />} />
-          {/* Sprint 3+ stubs */}
-          <Route path="/strategies" element={<ComingSoon title="Strategy Recommender" />} />
-          <Route path="/library" element={<ComingSoon title="Strategy Library" />} />
+          {/* Sprint 3 */}
+          <Route path="/strategies" element={<RecommendationsPage />} />
+          <Route path="/library" element={<StrategyLibraryPage />} />
+          <Route path="/library/:id" element={<StrategyDetailPage />} />
+          {/* Sprint 4+ stubs */}
           <Route path="/builder" element={<ComingSoon title="Strategy Builder" />} />
           <Route path="/my-strategies" element={<ComingSoon title="My Strategies" />} />
           <Route path="/watchlist" element={<ComingSoon title="Watchlist" />} />

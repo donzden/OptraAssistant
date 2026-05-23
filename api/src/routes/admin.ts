@@ -36,7 +36,7 @@ router.get('/users', async (req: AuthRequest, res: Response) => {
 router.patch('/users/:id/status', async (req: AuthRequest, res: Response) => {
   const { status } = z.object({ status: z.enum(['ACTIVE', 'INACTIVE', 'LOCKED']) }).parse(req.body)
   const user = await prisma.user.update({
-    where: { id: req.params.id },
+    where: { id: String(req.params.id) },
     data: { status, ...(status === 'ACTIVE' ? { lockedUntil: null, loginFailureCount: 0 } : {}) },
     select: { id: true, name: true, email: true, status: true },
   })
@@ -47,7 +47,7 @@ router.patch('/users/:id/status', async (req: AuthRequest, res: Response) => {
 router.patch('/users/:id/role', async (req: AuthRequest, res: Response) => {
   const { role } = z.object({ role: z.enum(['USER', 'ADMIN']) }).parse(req.body)
   const user = await prisma.user.update({
-    where: { id: req.params.id },
+    where: { id: String(req.params.id) },
     data: { role },
     select: { id: true, name: true, email: true, role: true },
   })
