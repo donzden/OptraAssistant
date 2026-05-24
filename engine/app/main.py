@@ -12,6 +12,7 @@ from .api.routes.options_chain import router as options_chain_router
 from .api.routes.market import router as market_router
 from .api.routes.portfolio import router as portfolio_router
 from .api.routes.strategies import router as strategies_router
+from .api.routes.monitor import router as monitor_router
 from .core.config import settings
 from .services.market_analyser import analyse_market
 from .services.market_cache import set_cached_signal
@@ -64,3 +65,4 @@ app.include_router(options_chain_router, prefix="/api/v1")
 app.include_router(market_router, prefix="/api/v1")
 app.include_router(portfolio_router, prefix="/api/v1")
 app.include_router(strategies_router, prefix="/api/v1")
+app.include_router(monitor_router, prefix="/api/v1")

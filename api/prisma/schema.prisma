@@ -53,6 +53,7 @@ model User {
   favourites       UserStrategyFavourite[]
   userStrategies   UserStrategy[]
   watchlistItems   WatchlistItem[]
+  livePositions    LivePosition[]
 
   @@index([email])
   @@map("users")
@@ -235,6 +236,33 @@ model WatchlistItem {
 
   @@unique([userId, strategyId])
   @@map("watchlist_items")
+}
+
+enum LivePositionStatus {
+  ACTIVE
+  CLOSED
+}
+
+model LivePosition {
+  id             String             @id @default(uuid())
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategyName   String
+  instrument     String
+  expiry         String
+  legs           Json
+  status         LivePositionStatus @default(ACTIVE)
+  entryDate      DateTime           @default(now())
+  closedAt       DateTime?
+  stopLossPct    Float?
+  notes          String?
+  pnlHistory     Json               @default("[]")
+  userStrategyId String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([userId])
+  @@map("live_positions")
 }
 
 model UserStrategyFavourite {

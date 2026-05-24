@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { to: '/builder', icon: Wrench, label: 'Builder' },
   { to: '/my-strategies', icon: Bookmark, label: 'My Strategies' },
   { to: '/watchlist', icon: Eye, label: 'Watchlist' },
+  { to: '/monitor', icon: Activity, label: 'Live Monitor' },
 ]
 
 export default function AppShell() {

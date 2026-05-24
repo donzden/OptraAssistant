@@ -19,6 +19,7 @@ import NotFoundPage from '@/pages/NotFoundPage'
 import StrategyBuilderPage from '@/pages/StrategyBuilderPage'
 import MyStrategiesPage from '@/pages/MyStrategiesPage'
 import WatchlistPage from '@/pages/WatchlistPage'
+import MonitorPage from '@/pages/MonitorPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -63,6 +64,8 @@ export default function App() {
           <Route path="/builder" element={<StrategyBuilderPage />} />
           <Route path="/my-strategies" element={<MyStrategiesPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />
+          {/* Sprint 5 */}
+          <Route path="/monitor" element={<MonitorPage />} />
           <Route path="/help" element={<HelpPage />} />
         </Route>
 
