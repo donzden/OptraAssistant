@@ -417,7 +417,7 @@ export default function StrategyBuilderPage() {
   const lotSize = LOT_SIZES[instrument] ?? 50
   const stepSize = STEP_SIZES[instrument] ?? 50
 
-  const { data: expiries = [], isLoading: expiriesLoading } = useQuery({
+  const { data: expiries = [], isLoading: expiriesLoading, isError: expiriesError } = useQuery({
     queryKey: ['expiries', instrument],
     queryFn: () => fetchExpiries(instrument),
     staleTime: 5 * 60_000,
@@ -558,7 +558,9 @@ export default function StrategyBuilderPage() {
               disabled={expiriesLoading || expiries.length === 0}
               className="bg-surface-tertiary border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white pr-7 appearance-none focus:outline-none focus:border-primary-500"
             >
-              {(expiriesLoading || expiries.length === 0) && <option value="">Loading…</option>}
+              {expiriesLoading && <option value="">Loading…</option>}
+              {!expiriesLoading && expiriesError && <option value="">Error loading expiries</option>}
+              {!expiriesLoading && !expiriesError && expiries.length === 0 && <option value="">No expiries available</option>}
               {expiries.map((e) => <option key={e} value={e}>{e}</option>)}
             </select>
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
