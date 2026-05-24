@@ -11,6 +11,27 @@ export interface LivePositionLeg {
   entryPrice: number
 }
 
+export interface ExitRule {
+  id: string
+  type: 'pnl_pct' | 'pnl_abs' | 'delta' | 'dte'
+  threshold: number
+  label: string
+  netPremium?: number
+}
+
+export interface ExitSignal {
+  id: string
+  userId: string
+  livePositionId: string
+  ruleType: string
+  ruleLabel: string
+  currentPnl: number
+  triggerValue: number
+  suggestion: string | null
+  acknowledged: boolean
+  createdAt: string
+}
+
 export interface SnapshotLeg {
   symbol: string
   strike: number
@@ -47,14 +68,17 @@ export interface LivePosition {
   instrument: string
   expiry: string
   legs: LivePositionLeg[]
+  exitRules: ExitRule[]
   status: LivePositionStatus
   entryDate: string
   closedAt: string | null
   stopLossPct: number | null
+  finalPnl: number | null
   notes: string | null
   pnlHistory: PnlPoint[]
   userStrategyId: string | null
   createdAt: string
   updatedAt: string
   snapshot: Snapshot | null
+  signals: ExitSignal[]
 }

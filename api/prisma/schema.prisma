@@ -54,6 +54,7 @@ model User {
   userStrategies   UserStrategy[]
   watchlistItems   WatchlistItem[]
   livePositions    LivePosition[]
+  exitSignals      ExitSignal[]
 
   @@index([email])
   @@map("users")
@@ -257,12 +258,35 @@ model LivePosition {
   stopLossPct    Float?
   notes          String?
   pnlHistory     Json               @default("[]")
+  exitRules      Json               @default("[]")
+  finalPnl       Float?
   userStrategyId String?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
+  exitSignals    ExitSignal[]
+
   @@index([userId])
   @@map("live_positions")
+}
+
+model ExitSignal {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  livePositionId String
+  livePosition   LivePosition @relation(fields: [livePositionId], references: [id], onDelete: Cascade)
+  ruleType       String
+  ruleLabel      String
+  currentPnl     Float
+  triggerValue   Float
+  suggestion     String?
+  acknowledged   Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([userId])
+  @@index([livePositionId])
+  @@map("exit_signals")
 }
 
 model UserStrategyFavourite {

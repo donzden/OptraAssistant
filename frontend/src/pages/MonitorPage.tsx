@@ -2,15 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Activity, RefreshCw, Plus, ChevronDown, ChevronUp,
-  CheckCircle, Clock, AlertTriangle, X, Trash2,
+  CheckCircle, Clock, AlertTriangle, X, Trash2, Bell, ShieldAlert, Settings2,
 } from 'lucide-react'
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
 import {
   fetchMonitor, closeLivePosition, deleteLivePosition, createLivePosition,
+  acknowledgeSignal, updateExitRules,
 } from '@/api/monitor'
-import type { LivePosition, LivePositionLeg } from '@/types/monitor'
+import type { LivePosition, LivePositionLeg, ExitRule, ExitSignal } from '@/types/monitor'
 
 const INSTRUMENTS = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']
 const AUTO_REFRESH_SEC = 60
@@ -283,6 +284,110 @@ function AddPositionModal({
   )
 }
 
+function ExitRulesEditor({ posId, rules, onSaved }: { posId: string; rules: ExitRule[]; onSaved: () => void }) {
+  const qc = useQueryClient()
+  const [localRules, setLocalRules] = useState<ExitRule[]>(rules)
+  const [dirty, setDirty] = useState(false)
+
+  const RULE_TYPES: Array<{ value: ExitRule['type']; label: string; unit: string }> = [
+    { value: 'pnl_pct', label: 'Loss > % of premium', unit: '%' },
+    { value: 'pnl_abs', label: 'Loss > ₹ amount', unit: '₹' },
+    { value: 'delta', label: '|Net Delta| > ', unit: '' },
+    { value: 'dte', label: 'DTE ≤ ', unit: 'days' },
+  ]
+
+  const saveMutation = useMutation({
+    mutationFn: () => updateExitRules(posId, localRules),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['monitor'] }); setDirty(false); onSaved(); toast.success('Exit rules saved') },
+    onError: () => toast.error('Failed to save rules'),
+  })
+
+  const addRule = () => {
+    setLocalRules((p) => [...p, { id: crypto.randomUUID(), type: 'pnl_pct', threshold: 50, label: 'Exit if loss > 50% of premium' }])
+    setDirty(true)
+  }
+
+  const updateRule = (idx: number, field: keyof ExitRule, val: any) => {
+    setLocalRules((p) => p.map((r, i) => i === idx ? { ...r, [field]: val } : r))
+    setDirty(true)
+  }
+
+  return (
+    <div className="space-y-2">
+      {localRules.map((rule, i) => (
+        <div key={rule.id} className="flex items-center gap-2">
+          <select
+            value={rule.type}
+            onChange={(e) => {
+              const meta = RULE_TYPES.find((t) => t.value === e.target.value)!
+              updateRule(i, 'type', e.target.value)
+              updateRule(i, 'label', meta.label + ' ' + rule.threshold + meta.unit)
+            }}
+            className="bg-surface-tertiary border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none flex-1"
+          >
+            {RULE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+          <input
+            type="number"
+            value={rule.threshold}
+            onChange={(e) => {
+              const meta = RULE_TYPES.find((t) => t.value === rule.type)!
+              updateRule(i, 'threshold', Number(e.target.value))
+              updateRule(i, 'label', meta.label + ' ' + e.target.value + meta.unit)
+            }}
+            className="w-20 bg-surface-tertiary border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+          />
+          <button onClick={() => { setLocalRules((p) => p.filter((_, idx) => idx !== i)); setDirty(true) }} className="text-slate-500 hover:text-red-400 p-1">
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      ))}
+      <div className="flex items-center gap-2">
+        {localRules.length < 4 && (
+          <button onClick={addRule} className="flex items-center gap-1 text-[10px] text-primary-400 hover:text-primary-300">
+            <Plus className="w-3 h-3" /> Add rule
+          </button>
+        )}
+        {dirty && (
+          <button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="ml-auto px-2.5 py-1 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-[10px] font-medium transition-colors disabled:opacity-50"
+          >
+            Save rules
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SignalBanner({ signals, onAck }: { signals: ExitSignal[]; onAck: (id: string) => void }) {
+  if (signals.length === 0) return null
+  return (
+    <div className="border-t border-amber-800/40 bg-amber-900/10 px-4 py-3 space-y-2">
+      {signals.map((s) => (
+        <div key={s.id} className="flex items-start gap-2">
+          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-300">{s.ruleLabel}</p>
+            {s.suggestion && <p className="text-[10px] text-amber-200/80 mt-0.5">{s.suggestion}</p>}
+            <p className="text-[10px] text-amber-500 mt-0.5">
+              P&L at trigger: {s.currentPnl >= 0 ? '+' : '−'}₹{Math.abs(s.currentPnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </p>
+          </div>
+          <button
+            onClick={() => onAck(s.id)}
+            className="shrink-0 text-[10px] px-2 py-0.5 rounded border border-amber-700 text-amber-300 hover:bg-amber-800/30 transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function PositionCard({
   pos,
   onClose,
@@ -292,12 +397,21 @@ function PositionCard({
   onClose: (id: string) => void
   onDelete: (id: string) => void
 }) {
+  const qc = useQueryClient()
   const [expanded, setExpanded] = useState(false)
+  const [showRulesEditor, setShowRulesEditor] = useState(false)
   const tte = useCountdown(pos.expiry)
   const snap = pos.snapshot
   const pnl = snap?.net_pnl ?? null
   const stopLossPnl = calcStopLossPnl(pos)
   const nearSL = stopLossPnl != null && pnl != null && pnl <= stopLossPnl * 0.8 && pnl > stopLossPnl
+  const unackedSignals = (pos.signals ?? []).filter((s) => !s.acknowledged)
+
+  const ackMutation = useMutation({
+    mutationFn: acknowledgeSignal,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['monitor'] }),
+    onError: () => toast.error('Failed to dismiss signal'),
+  })
 
   const entryPremium = pos.legs.reduce((acc, leg) => acc + leg.entryPrice * leg.lots * leg.lotSize, 0)
   const pnlPct = entryPremium > 0 && pnl != null
@@ -307,7 +421,11 @@ function PositionCard({
   return (
     <div className={clsx(
       'rounded-xl border overflow-hidden transition-colors',
-      nearSL ? 'border-amber-700/60 bg-amber-900/5' : 'border-surface-tertiary bg-surface-secondary',
+      unackedSignals.length > 0
+        ? 'border-amber-700/60 bg-amber-900/5'
+        : nearSL
+        ? 'border-amber-700/40'
+        : 'border-surface-tertiary bg-surface-secondary',
     )}>
       <div className="p-4">
         <div className="flex items-start gap-3">
@@ -358,13 +476,28 @@ function PositionCard({
 
         {/* Sparkline + actions */}
         <div className="flex items-center justify-between mt-3">
-          <Sparkline data={pos.pnlHistory} />
+          <div className="flex items-center gap-3">
+            <Sparkline data={pos.pnlHistory} />
+            {unackedSignals.length > 0 && (
+              <div className="flex items-center gap-1 text-[10px] text-amber-300 bg-amber-900/20 border border-amber-800/30 px-2 py-0.5 rounded-full">
+                <Bell className="w-3 h-3" />
+                {unackedSignals.length} alert{unackedSignals.length > 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => onClose(pos.id)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-700/60 hover:bg-slate-600/60 text-slate-200 text-xs font-medium transition-colors"
             >
               <CheckCircle className="w-3 h-3" /> Mark Closed
+            </button>
+            <button
+              onClick={() => { setExpanded(true); setShowRulesEditor((s) => !s) }}
+              title="Exit rules"
+              className={clsx('p-1.5 rounded-lg transition-colors', showRulesEditor ? 'text-primary-400' : 'text-slate-500 hover:text-slate-200')}
+            >
+              <Settings2 className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => onDelete(pos.id)}
@@ -382,6 +515,9 @@ function PositionCard({
           </div>
         </div>
       </div>
+
+      {/* Signal banners */}
+      <SignalBanner signals={unackedSignals} onAck={(id) => ackMutation.mutate(id)} />
 
       {/* Per-leg breakdown */}
       {expanded && (
@@ -446,6 +582,18 @@ function PositionCard({
           )}
         </div>
       )}
+
+      {/* Exit rules editor */}
+      {expanded && showRulesEditor && (
+        <div className="border-t border-surface-tertiary px-4 py-3">
+          <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Exit Rules</p>
+          <ExitRulesEditor
+            posId={pos.id}
+            rules={pos.exitRules ?? []}
+            onSaved={() => setShowRulesEditor(false)}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -506,6 +654,7 @@ export default function MonitorPage() {
   const activePnl = positions.reduce((acc, p) => acc + (p.snapshot?.net_pnl ?? 0), 0)
   const profitCount = positions.filter((p) => (p.snapshot?.net_pnl ?? 0) > 0).length
   const lossCount = positions.filter((p) => (p.snapshot?.net_pnl ?? 0) < 0).length
+  const totalAlerts = positions.reduce((acc, p) => acc + (p.signals ?? []).filter((s) => !s.acknowledged).length, 0)
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
@@ -588,6 +737,14 @@ export default function MonitorPage() {
             </div>
             <p className="text-[10px] text-slate-500 mt-0.5">Winning / Losing</p>
           </div>
+          {totalAlerts > 0 && (
+            <div className="col-span-3 flex items-center gap-2 rounded-xl bg-amber-900/10 border border-amber-800/30 px-4 py-2">
+              <Bell className="w-4 h-4 text-amber-400 shrink-0" />
+              <p className="text-xs text-amber-300">
+                {totalAlerts} active exit alert{totalAlerts > 1 ? 's' : ''} — expand cards to review and dismiss.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

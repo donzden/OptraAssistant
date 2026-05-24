@@ -1,11 +1,13 @@
 import random
 from datetime import date, datetime
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from app.services.greeks import calculate_greeks
+from app.services.exit_signals import evaluate_rules, get_adjustment_suggestion, get_post_mortem_explanation
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -42,6 +44,46 @@ def _dte(expiry_str: str) -> float:
 def _ltp(entry: float, dte: float) -> float:
     vol = 0.025 + (0.015 if dte < 3 else 0)
     return round(max(entry * (1.0 + random.gauss(0, vol)), 0.05), 2)
+
+
+class CheckRulesRequest(BaseModel):
+    snapshot: Dict[str, Any]
+    exit_rules: List[Dict[str, Any]]
+    expiry: str
+    strategy_name: str
+
+
+@router.post("/monitor/check-rules")
+def monitor_check_rules(body: CheckRulesRequest, x_internal_key: str = Header(None)):
+    _verify(x_internal_key)
+    triggered = evaluate_rules(body.snapshot, body.exit_rules, body.expiry)
+    results = []
+    for t in triggered:
+        suggestion = get_adjustment_suggestion(
+            t["ruleType"], t["ruleLabel"], body.snapshot,
+            body.strategy_name, settings.anthropic_api_key,
+        )
+        results.append({**t, "suggestion": suggestion})
+    return {"triggered": results}
+
+
+class PostMortemRequest(BaseModel):
+    strategy_name: str
+    instrument: str
+    entry_date: str
+    closed_at: str
+    final_pnl: float
+    legs: List[Dict[str, Any]]
+
+
+@router.post("/monitor/post-mortem")
+def monitor_post_mortem(body: PostMortemRequest, x_internal_key: str = Header(None)):
+    _verify(x_internal_key)
+    explanation = get_post_mortem_explanation(
+        body.strategy_name, body.instrument, body.entry_date,
+        body.closed_at, body.final_pnl, body.legs, settings.anthropic_api_key,
+    )
+    return {"explanation": explanation}
 
 
 @router.post("/monitor/snapshot")
