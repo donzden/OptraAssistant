@@ -409,7 +409,7 @@ export default function StrategyBuilderPage() {
   const editId = searchParams.get('editId')
 
   const [instrument, setInstrument] = useState('NIFTY')
-  const [expiry, setExpiry] = useState('')
+  const [expiry, setExpiry] = useState<string | undefined>(undefined)
   const [legs, setLegs] = useState<BuilderLeg[]>([])
   const [showSave, setShowSave] = useState(false)
   const [showTemplate, setShowTemplate] = useState(false)
@@ -423,10 +423,12 @@ export default function StrategyBuilderPage() {
     staleTime: 5 * 60_000,
   })
 
+  const selectedExpiry = expiry ?? expiries[0]
+
   const { data: chain, isFetching: chainFetching } = useQuery({
-    queryKey: ['chain', instrument, expiry],
-    queryFn: () => fetchOptionsChain(instrument, expiry),
-    enabled: !!expiry,
+    queryKey: ['chain', instrument, selectedExpiry],
+    queryFn: () => fetchOptionsChain(instrument, selectedExpiry ?? ''),
+    enabled: !!selectedExpiry,
     staleTime: 60_000,
   })
 
@@ -435,11 +437,6 @@ export default function StrategyBuilderPage() {
     queryFn: () => fetchStrategies({}),
     staleTime: 10 * 60_000,
   })
-
-  // Auto-select first expiry
-  useEffect(() => {
-    if (expiries.length > 0 && !expiry) setExpiry(expiries[0])
-  }, [expiries, expiry])
 
   // Load template / edit strategy
   useEffect(() => {
@@ -544,7 +541,7 @@ export default function StrategyBuilderPage() {
           {INSTRUMENTS.map((ins) => (
             <button
               key={ins}
-              onClick={() => { setInstrument(ins); setExpiry(''); setLegs([]) }}
+              onClick={() => { setInstrument(ins); setExpiry(undefined); setLegs([]) }}
               className={clsx(
                 'px-3 py-1.5 text-xs font-medium transition-colors',
                 instrument === ins ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white',
@@ -556,12 +553,12 @@ export default function StrategyBuilderPage() {
           <span className="text-xs text-slate-400">Expiry:</span>
           <div className="relative">
             <select
-              value={expiry}
+              value={selectedExpiry ?? ''}
               onChange={(e) => setExpiry(e.target.value)}
-              disabled={expiriesLoading}
+              disabled={expiriesLoading || expiries.length === 0}
               className="bg-surface-tertiary border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white pr-7 appearance-none focus:outline-none focus:border-primary-500"
             >
-              {expiriesLoading && <option>Loading…</option>}
+              {(expiriesLoading || expiries.length === 0) && <option value="">Loading…</option>}
               {expiries.map((e) => <option key={e} value={e}>{e}</option>)}
             </select>
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
