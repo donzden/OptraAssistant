@@ -11,7 +11,7 @@ import {
 } from 'recharts'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
-import { fetchStrategy, toggleFavourite, explainStrategy } from '@/api/strategies'
+import { fetchStrategy, fetchStrategies, toggleFavourite, explainStrategy } from '@/api/strategies'
 
 const CATEGORY_LABELS: Record<string, string> = {
   DIRECTIONAL: 'Directional',
@@ -45,9 +45,10 @@ const IV_LABELS: Record<string, string> = {
   HIGH: 'High IV (rank >80%)',
 }
 
-function buildPayoffData(strategyName: string) {
+function buildPayoffData(strategyName: string, spotOffset = 0) {
   const spot = 100
-  const moves = Array.from({ length: 21 }, (_, i) => spot - 10 + i)
+  const center = spot + spotOffset
+  const moves = Array.from({ length: 21 }, (_, i) => center - 10 + i)
 
   const payoffFn = (s: number): number => {
     const pct = (s - spot) / spot
@@ -77,11 +78,20 @@ function buildPayoffData(strategyName: string) {
   }))
 }
 
-function PayoffDiagram({ strategyName }: { strategyName: string }) {
-  const data = buildPayoffData(strategyName)
+function PayoffDiagram({ strategyName, spotOffset }: { strategyName: string; spotOffset: number }) {
+  const data = buildPayoffData(strategyName, spotOffset)
+  const currentLabel = `${spotOffset >= 0 ? '+' : ''}${spotOffset}%`
+
   return (
     <div className="rounded-xl bg-surface-secondary border border-surface-tertiary p-4">
-      <h3 className="text-sm font-semibold text-slate-300 mb-3">Payoff Diagram (illustrative)</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-slate-300">Payoff Diagram (illustrative)</h3>
+        {spotOffset !== 0 && (
+          <span className="text-[10px] text-amber-400 border border-amber-800/40 bg-amber-900/20 px-1.5 py-0.5 rounded">
+            Spot {currentLabel}
+          </span>
+        )}
+      </div>
       <ResponsiveContainer width="100%" height={160}>
         <LineChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
@@ -93,6 +103,15 @@ function PayoffDiagram({ strategyName }: { strategyName: string }) {
             formatter={(v: number) => [v > 0 ? `+${v}` : `${v}`, 'P&L']}
           />
           <ReferenceLine y={0} stroke="#475569" strokeDasharray="4 2" />
+          {spotOffset !== 0 && (
+            <ReferenceLine
+              x={currentLabel}
+              stroke="#f59e0b"
+              strokeWidth={1.5}
+              strokeDasharray="4 2"
+              label={{ value: 'now', fill: '#f59e0b', fontSize: 9, position: 'insideTopRight' }}
+            />
+          )}
           <Line
             type="monotone"
             dataKey="pnl"
@@ -102,7 +121,7 @@ function PayoffDiagram({ strategyName }: { strategyName: string }) {
           />
         </LineChart>
       </ResponsiveContainer>
-      <p className="text-[10px] text-slate-500 mt-2">X-axis: underlying % move from current price. Y-axis: relative P&L (normalised).</p>
+      <p className="text-[10px] text-slate-500 mt-2">X-axis: underlying % move from entry price. Y-axis: relative P&L (normalised).</p>
     </div>
   )
 }
@@ -129,12 +148,24 @@ export default function StrategyDetailPage() {
   const qc = useQueryClient()
   const [explanation, setExplanation] = useState<string | null>(null)
   const [explainLoading, setExplainLoading] = useState(false)
+  const [spotOffset, setSpotOffset] = useState(0)
 
   const { data: strategy, isLoading } = useQuery({
     queryKey: ['strategy', id],
     queryFn: () => fetchStrategy(id!),
     enabled: !!id,
   })
+
+  const { data: allStrategies = [] } = useQuery({
+    queryKey: ['strategies'],
+    queryFn: () => fetchStrategies({}),
+    staleTime: 5 * 60_000,
+    enabled: !!strategy,
+  })
+
+  const similar = allStrategies
+    .filter((s) => s.category === strategy?.category && s.id !== id)
+    .slice(0, 3)
 
   const favMutation = useMutation({
     mutationFn: () => toggleFavourite(id!),
@@ -288,7 +319,28 @@ export default function StrategyDetailPage() {
         </div>
       </Section>
 
-      <PayoffDiagram strategyName={strategy.name} />
+      <PayoffDiagram strategyName={strategy.name} spotOffset={spotOffset} />
+
+      <div className="rounded-xl bg-surface-secondary border border-surface-tertiary px-4 py-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-slate-400">Spot offset: <span className="text-white font-medium">{spotOffset >= 0 ? '+' : ''}{spotOffset}%</span></span>
+          <button onClick={() => setSpotOffset(0)} className="text-[10px] text-slate-500 hover:text-slate-300">Reset</button>
+        </div>
+        <input
+          type="range"
+          min={-15}
+          max={15}
+          step={1}
+          value={spotOffset}
+          onChange={(e) => setSpotOffset(Number(e.target.value))}
+          className="w-full accent-primary-500"
+        />
+        <div className="flex justify-between text-[10px] text-slate-600">
+          <span>−15%</span>
+          <span>0%</span>
+          <span>+15%</span>
+        </div>
+      </div>
 
       <div className="rounded-xl bg-surface-secondary border border-surface-tertiary p-4 space-y-3">
         <div className="flex items-center justify-between">
@@ -338,6 +390,24 @@ export default function StrategyDetailPage() {
           <li className="flex items-start gap-2"><span className="text-red-400 mt-0.5">✗</span> Major economic events (RBI, elections, budget) that can spike IV unpredictably</li>
         </ul>
       </div>
+
+      {similar.length > 0 && (
+        <div className="rounded-xl bg-surface-secondary border border-surface-tertiary p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-white">Similar Strategies</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {similar.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => navigate(`/library/${s.id}`)}
+                className="text-left p-3 rounded-lg bg-surface-tertiary/40 hover:bg-surface-tertiary border border-surface-tertiary hover:border-primary-600/40 transition-all group"
+              >
+                <p className="text-xs font-medium text-white group-hover:text-primary-300 transition-colors">{s.name}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-2">{s.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

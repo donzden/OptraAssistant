@@ -72,6 +72,11 @@ function StrategyCard({ strategy, view, onFavourite }: { strategy: Strategy; vie
           </div>
           <span className={clsx('font-medium', RISK_COLORS[strategy.riskLevel])}>{strategy.riskLevel}</span>
           <span className="text-slate-500">{strategy.dteMin && strategy.dteMax ? `${strategy.dteMin}–${strategy.dteMax}d` : 'Any'}</span>
+          {strategy.favouriteCount !== undefined && (
+            <span className="text-slate-500 flex items-center gap-0.5">
+              <Heart className="w-2.5 h-2.5" /> {strategy.favouriteCount}
+            </span>
+          )}
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onFavourite() }}
@@ -107,6 +112,11 @@ function StrategyCard({ strategy, view, onFavourite }: { strategy: Strategy; vie
         <div className="flex items-center gap-2 flex-wrap">
           <span className={clsx('text-[10px] px-1.5 py-0.5 rounded font-medium', TYPE_COLORS[strategy.type])}>{strategy.type}</span>
           <span className={clsx('text-[10px] font-medium', RISK_COLORS[strategy.riskLevel])}>{strategy.riskLevel}</span>
+          {strategy.favouriteCount !== undefined && (
+            <span className="text-[10px] text-slate-500 flex items-center gap-0.5 ml-auto">
+              <Heart className="w-2.5 h-2.5" /> {strategy.favouriteCount}
+            </span>
+          )}
         </div>
         <div className="border-t border-surface-tertiary pt-2 grid grid-cols-3 gap-2 text-[10px]">
           <div>
@@ -135,7 +145,7 @@ export default function StrategyLibraryPage() {
   const [riskLevel, setRiskLevel] = useState('')
   const [type, setType] = useState('')
   const [outlook, setOutlook] = useState('')
-  const [sortBy, setSortBy] = useState<'name' | 'category'>('name')
+  const [sortBy, setSortBy] = useState<'name' | 'category' | 'popularity'>('name')
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const qc = useQueryClient()
 
@@ -153,7 +163,11 @@ export default function StrategyLibraryPage() {
 
   const filtered = strategies
     .filter((s) => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.description.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => sortBy === 'name' ? a.name.localeCompare(b.name) : a.category.localeCompare(b.category))
+    .sort((a, b) => {
+      if (sortBy === 'popularity') return (b.favouriteCount ?? 0) - (a.favouriteCount ?? 0)
+      if (sortBy === 'category') return a.category.localeCompare(b.category)
+      return a.name.localeCompare(b.name)
+    })
 
   return (
     <div className="space-y-5 max-w-5xl mx-auto">
@@ -206,9 +220,10 @@ export default function StrategyLibraryPage() {
           <option value="BEARISH">Bearish</option>
           <option value="NEUTRAL">Neutral</option>
         </select>
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'name' | 'category')} className="px-2.5 py-1.5 rounded-lg bg-surface-secondary border border-slate-700 text-xs text-slate-300 focus:outline-none focus:border-primary-500">
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="px-2.5 py-1.5 rounded-lg bg-surface-secondary border border-slate-700 text-xs text-slate-300 focus:outline-none focus:border-primary-500">
           <option value="name">Sort: A–Z</option>
           <option value="category">Sort: Category</option>
+          <option value="popularity">Sort: Popularity</option>
         </select>
       </div>
 

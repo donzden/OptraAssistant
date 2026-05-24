@@ -47,6 +47,7 @@ export interface Strategy {
   rules: StrategyRules
   source: string
   isFavourite?: boolean
+  favouriteCount?: number
   createdAt: string
   updatedAt: string
 }

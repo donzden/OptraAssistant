@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Users, UserCheck, Clock, Lock, ChevronLeft, ChevronRight, Shield, ShieldOff } from 'lucide-react'
-import { adminApi, type AdminUser } from '@/api/admin'
+import { adminApi, type AdminUser, type StrategyWithCount } from '@/api/admin'
 import clsx from 'clsx'
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
@@ -173,9 +173,142 @@ function UsersTable() {
   )
 }
 
+// ─── Strategies table ─────────────────────────────────────────────────────────
+
+function StrategiesTable() {
+  const qc = useQueryClient()
+  const [editing, setEditing] = useState<StrategyWithCount | null>(null)
+  const [form, setForm] = useState({ description: '', dteMin: '', dteMax: '' })
+
+  const { data: strategies = [], isLoading } = useQuery({
+    queryKey: ['admin-strategies'],
+    queryFn: () => adminApi.getStrategies().then((r) => r.data),
+  })
+
+  const updateMut = useMutation({
+    mutationFn: () => adminApi.updateStrategy(editing!.id, {
+      description: form.description || undefined,
+      dteMin: form.dteMin !== '' ? parseInt(form.dteMin) : null,
+      dteMax: form.dteMax !== '' ? parseInt(form.dteMax) : null,
+    }),
+    onSuccess: () => {
+      toast.success('Strategy updated')
+      qc.invalidateQueries({ queryKey: ['admin-strategies'] })
+      setEditing(null)
+    },
+    onError: () => toast.error('Update failed'),
+  })
+
+  if (isLoading) return <div className="text-slate-400 text-sm py-8 text-center">Loading strategies…</div>
+
+  return (
+    <div className="space-y-3">
+      <div className="overflow-x-auto rounded-lg border border-surface-tertiary">
+        <table className="w-full text-sm">
+          <thead className="bg-surface-secondary">
+            <tr className="text-left text-slate-400">
+              <th className="px-4 py-3 font-medium">Name</th>
+              <th className="px-4 py-3 font-medium">Category</th>
+              <th className="px-4 py-3 font-medium">Type</th>
+              <th className="px-4 py-3 font-medium">Risk</th>
+              <th className="px-4 py-3 font-medium">Favs</th>
+              <th className="px-4 py-3" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-surface-tertiary">
+            {strategies.map((s) => (
+              <tr key={s.id} className="hover:bg-surface-secondary/50 transition-colors">
+                <td className="px-4 py-3 font-medium text-slate-200">{s.name}</td>
+                <td className="px-4 py-3 text-slate-400 text-xs">{s.category}</td>
+                <td className="px-4 py-3 text-slate-400 text-xs">{s.type}</td>
+                <td className="px-4 py-3 text-slate-400 text-xs">{s.riskLevel}</td>
+                <td className="px-4 py-3 text-slate-400 text-xs">{s._count.favourites}</td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => {
+                      setEditing(s)
+                      setForm({
+                        description: s.description,
+                        dteMin: s.dteMin != null ? String(s.dteMin) : '',
+                        dteMax: s.dteMax != null ? String(s.dteMax) : '',
+                      })
+                    }}
+                    className="text-xs text-primary-400 hover:text-primary-300 px-2 py-1 rounded hover:bg-surface-tertiary"
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {editing && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={() => setEditing(null)}
+        >
+          <div className="card w-full max-w-lg p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-base font-semibold text-white">{editing.name}</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-tertiary border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-primary-500 resize-none"
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">DTE Min</label>
+                  <input
+                    type="number"
+                    value={form.dteMin}
+                    onChange={(e) => setForm((f) => ({ ...f, dteMin: e.target.value }))}
+                    className="w-full px-3 py-1.5 rounded-lg bg-surface-tertiary border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">DTE Max</label>
+                  <input
+                    type="number"
+                    value={form.dteMax}
+                    onChange={(e) => setForm((f) => ({ ...f, dteMax: e.target.value }))}
+                    className="w-full px-3 py-1.5 rounded-lg bg-surface-tertiary border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={() => setEditing(null)}
+                className="px-4 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-surface-tertiary transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => updateMut.mutate()}
+                disabled={updateMut.isPending}
+                className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
+  const [tab, setTab] = useState<'users' | 'strategies'>('users')
+
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: () => adminApi.getStats().then((r) => r.data),
@@ -193,8 +326,23 @@ export default function AdminPage() {
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-lg font-medium text-white">Users</h2>
-        <UsersTable />
+        <div className="flex items-center gap-1 border-b border-surface-tertiary">
+          <button
+            onClick={() => setTab('users')}
+            className={clsx('px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px', tab === 'users' ? 'border-primary-500 text-white' : 'border-transparent text-slate-400 hover:text-white')}
+          >
+            Users
+          </button>
+          <button
+            onClick={() => setTab('strategies')}
+            className={clsx('px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px', tab === 'strategies' ? 'border-primary-500 text-white' : 'border-transparent text-slate-400 hover:text-white')}
+          >
+            Strategies
+          </button>
+        </div>
+
+        {tab === 'users' && <UsersTable />}
+        {tab === 'strategies' && <StrategiesTable />}
       </div>
     </div>
   )

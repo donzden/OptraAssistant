@@ -6,10 +6,13 @@ import {
   ChevronDown, ChevronUp, Heart, ExternalLink, AlertCircle,
   Clock,
 } from 'lucide-react'
+import {
+  LineChart, Line, ResponsiveContainer, ReferenceLine,
+} from 'recharts'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
 import { fetchRecommendations, toggleFavourite } from '@/api/strategies'
-import type { ScoredStrategy, MarketSignal } from '@/types/strategies'
+import type { ScoredStrategy, MarketSignal, Strategy } from '@/types/strategies'
 
 const SYMBOLS = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']
 
@@ -44,6 +47,46 @@ const RISK_COLORS = {
   CONSERVATIVE: 'text-blue-400 bg-blue-900/20 border-blue-800/40',
   MODERATE: 'text-amber-400 bg-amber-900/20 border-amber-800/40',
   AGGRESSIVE: 'text-red-400 bg-red-900/20 border-red-800/40',
+}
+
+function estimateRewardRisk(s: Strategy): number {
+  if (s.type === 'DEBIT') return s.category === 'DIRECTIONAL' ? 3.0 : 2.0
+  if (s.type === 'CREDIT') return s.category === 'NON_DIRECTIONAL' ? 0.8 : 0.6
+  return 1.5
+}
+
+function buildMiniPayoff(name: string) {
+  const pts = Array.from({ length: 11 }, (_, i) => i - 5)
+  return pts.map((p) => {
+    let y = 0
+    if (name.includes('Long Call')) y = Math.max(0, p) - 2
+    else if (name.includes('Long Put')) y = Math.max(0, -p) - 2
+    else if (
+      name.includes('Short Strangle') || name.includes('Iron Condor') || name.includes('Iron Butterfly')
+    ) y = Math.max(-4, 2 - Math.max(0, Math.abs(p) - 2))
+    else if (name.includes('Long Strangle') || name.includes('Long Iron')) y = Math.min(3, Math.max(-2, Math.abs(p) - 2))
+    else if (name.includes('Bull') && name.includes('Spread')) y = Math.min(3, Math.max(-1.5, p - 1))
+    else if (name.includes('Bear') && name.includes('Spread')) y = Math.min(3, Math.max(-1.5, -p - 1))
+    else if (name.includes('Short Put') || name.includes('Short Call')) y = Math.min(1.5, 1.5 - Math.max(0, Math.abs(p) - 2))
+    else if (name.includes('Synthetic')) y = name.includes('Long') ? p : -p
+    else y = Math.max(-3, Math.min(3, p * 0.8))
+    return { x: p, y: parseFloat(y.toFixed(2)) }
+  })
+}
+
+function MiniPayoffChart({ name }: { name: string }) {
+  const data = buildMiniPayoff(name)
+  return (
+    <div>
+      <p className="text-[10px] text-slate-500 mb-1">Payoff shape (illustrative)</p>
+      <ResponsiveContainer width="100%" height={80}>
+        <LineChart data={data} margin={{ top: 4, right: 4, left: -30, bottom: 0 }}>
+          <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 2" />
+          <Line type="monotone" dataKey="y" stroke="#6366f1" strokeWidth={1.5} dot={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
 }
 
 function MarketBanner({ signal }: { signal: MarketSignal }) {
@@ -175,6 +218,8 @@ function StrategyCard({
         <div className="border-t border-surface-tertiary p-4 space-y-4 bg-surface-tertiary/20">
           {explanation && <p className="text-xs text-slate-300 leading-relaxed">{explanation}</p>}
 
+          <MiniPayoffChart name={strategy.name} />
+
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(condition_checks).map(([key, check]) => (
               <div key={key} className={clsx('rounded-lg p-2.5 border text-xs', check.passed ? 'bg-emerald-900/20 border-emerald-800/40' : 'bg-slate-800/40 border-slate-700/40')}>
@@ -226,7 +271,7 @@ export default function RecommendationsPage() {
   const [symbol, setSymbol] = useState('NIFTY')
   const [filterType, setFilterType] = useState<string>('')
   const [filterRisk, setFilterRisk] = useState<string>('')
-  const [sortBy, setSortBy] = useState<'score' | 'name'>('score')
+  const [sortBy, setSortBy] = useState<'score' | 'name' | 'rewardRisk'>('score')
   const qc = useQueryClient()
 
   const { data, isLoading, isRefetching, refetch, dataUpdatedAt } = useQuery({
@@ -248,7 +293,11 @@ export default function RecommendationsPage() {
   const filtered = ranked
     .filter((r) => !filterType || r.strategy.type === filterType)
     .filter((r) => !filterRisk || r.strategy.riskLevel === filterRisk)
-    .sort((a, b) => sortBy === 'score' ? b.score - a.score : a.strategy.name.localeCompare(b.strategy.name))
+    .sort((a, b) => {
+      if (sortBy === 'rewardRisk') return estimateRewardRisk(b.strategy) - estimateRewardRisk(a.strategy)
+      if (sortBy === 'score') return b.score - a.score
+      return a.strategy.name.localeCompare(b.strategy.name)
+    })
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
@@ -301,10 +350,11 @@ export default function RecommendationsPage() {
         </select>
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as 'score' | 'name')}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
           className="px-2.5 py-1.5 rounded-lg bg-surface-secondary border border-slate-700 text-xs text-slate-300 focus:outline-none focus:border-primary-500"
         >
           <option value="score">Sort: Score</option>
+          <option value="rewardRisk">Sort: Reward/Risk</option>
           <option value="name">Sort: Name</option>
         </select>
         {dataUpdatedAt > 0 && (

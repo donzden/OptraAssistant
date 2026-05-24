@@ -27,13 +27,18 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response, next: NextF
     const strategies = await prisma.strategy.findMany({
       where,
       orderBy: { name: 'asc' },
+      include: { _count: { select: { favourites: true } } },
     })
 
     const favouriteIds = await prisma.userStrategyFavourite
       .findMany({ where: { userId: req.userId! }, select: { strategyId: true } })
       .then((rows) => new Set(rows.map((r) => r.strategyId)))
 
-    res.json(strategies.map((s) => ({ ...s, isFavourite: favouriteIds.has(s.id) })))
+    res.json(strategies.map((s) => ({
+      ...s,
+      isFavourite: favouriteIds.has(s.id),
+      favouriteCount: s._count.favourites,
+    })))
   } catch (err) {
     next(err)
   }
@@ -58,14 +63,44 @@ router.get('/recommend', requireAuth, async (req: AuthRequest, res: Response, ne
   try {
     const symbol = String(req.query.symbol ?? 'NIFTY')
 
-    const user = await prisma.user.findUnique({ where: { id: req.userId! }, select: { riskAppetite: true } })
+    const [user, strategies, positions] = await Promise.all([
+      prisma.user.findUnique({ where: { id: req.userId! }, select: { riskAppetite: true } }),
+      prisma.strategy.findMany({ orderBy: { name: 'asc' } }),
+      prisma.position.findMany({ where: { userId: req.userId! } }),
+    ])
+
     const userRisk = user?.riskAppetite ?? 'MODERATE'
 
-    const strategies = await prisma.strategy.findMany({ orderBy: { name: 'asc' } })
+    let portfolio_greeks: unknown = undefined
+    if (positions.length > 0) {
+      try {
+        const { data } = await axios.post(
+          `${ENGINE_URL}/api/v1/portfolio/greeks`,
+          {
+            positions: positions.map((p) => ({
+              id: p.id,
+              symbol: p.symbol,
+              strike: p.strike,
+              expiry: p.expiry,
+              option_type: p.optionType,
+              lots: p.lots,
+              lot_size: p.lotSize,
+              avg_price: p.avgPrice,
+              position_type: p.positionType,
+            })),
+            spot_prices: {},
+          },
+          { headers: engineHeaders() },
+        )
+        portfolio_greeks = data
+      } catch {
+        // portfolio greeks are optional — continue without
+      }
+    }
 
     const { data } = await axios.post(
       `${ENGINE_URL}/api/v1/strategies/recommend`,
-      { strategies, user_risk: userRisk, symbol },
+      { strategies, user_risk: userRisk, symbol, portfolio_greeks },
       { headers: engineHeaders() },
     )
     res.json(data)
@@ -135,7 +170,7 @@ router.post('/:id/favourite', requireAuth, async (req: AuthRequest, res: Respons
   }
 })
 
-// Admin: GET /api/v1/strategies/admin/all — admin view with counts
+// Admin: GET /api/v1/strategies/admin/all — admin view with favourites counts
 router.get('/admin/all', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.userId! }, select: { role: true } })
@@ -146,6 +181,30 @@ router.get('/admin/all', requireAuth, async (req: AuthRequest, res: Response, ne
       orderBy: { name: 'asc' },
     })
     res.json(strategies)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// Admin: PUT /api/v1/strategies/admin/:id — update strategy fields
+router.put('/admin/:id', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.userId! }, select: { role: true } })
+    if (user?.role !== 'ADMIN') return res.status(403).json({ message: 'Forbidden' }) as unknown as void
+
+    const id = String(req.params.id)
+    const schema = z.object({
+      description: z.string().optional(),
+      riskLevel: z.enum(['CONSERVATIVE', 'MODERATE', 'AGGRESSIVE']).optional(),
+      dteMin: z.number().int().nullable().optional(),
+      dteMax: z.number().int().nullable().optional(),
+      category: z.enum(['DIRECTIONAL', 'NON_DIRECTIONAL', 'VOLATILITY']).optional(),
+      type: z.enum(['DEBIT', 'CREDIT', 'VARIES']).optional(),
+    })
+    const body = schema.parse(req.body)
+
+    const updated = await prisma.strategy.update({ where: { id }, data: body })
+    res.json(updated)
   } catch (err) {
     next(err)
   }

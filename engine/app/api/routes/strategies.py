@@ -3,10 +3,10 @@ OP-26/27/28/29: Market analyser, strategy scorer, and AI explanation routes.
 All routes require the internal API key.
 """
 from fastapi import APIRouter, Depends, Query
-from typing import Optional
 
 from ...core.security import require_internal_key
 from ...services.market_analyser import analyse_market
+from ...services.market_cache import get_cached_signal, set_cached_signal
 from ...services.strategy_scorer import score_strategies
 from ...services.claude_explainer import explain_strategy
 
@@ -15,8 +15,13 @@ router = APIRouter(prefix="/strategies", tags=["strategies"])
 
 @router.get("/analyse", dependencies=[Depends(require_internal_key)])
 async def analyse(symbol: str = Query("NIFTY")):
-    """OP-26: Return structured market signal (trend, IV regime, VIX regime, ADX, DTE buckets)."""
-    return await analyse_market(symbol)
+    """OP-26: Return structured market signal, served from Redis cache when available."""
+    cached = await get_cached_signal(symbol)
+    if cached:
+        return cached
+    signal = await analyse_market(symbol)
+    await set_cached_signal(symbol, signal)
+    return signal
 
 
 @router.post("/score", dependencies=[Depends(require_internal_key)])
@@ -58,7 +63,11 @@ async def recommend(payload: dict):
     user_risk = payload.get("user_risk", "MODERATE")
     portfolio_greeks = payload.get("portfolio_greeks")
 
-    market_signal = await analyse_market(symbol)
+    cached = await get_cached_signal(symbol)
+    market_signal = cached if cached else await analyse_market(symbol)
+    if not cached:
+        await set_cached_signal(symbol, market_signal)
+
     ranked = score_strategies(strategies, market_signal, user_risk)
 
     for item in ranked[:3]:
