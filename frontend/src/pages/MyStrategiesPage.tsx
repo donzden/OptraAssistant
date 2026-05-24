@@ -85,9 +85,9 @@ function StrategyCard({ strategy, onEdit, onDuplicate, onDelete }: {
         </div>
 
         {/* Tags */}
-        {strategy.tags.length > 0 && (
+        {(strategy.tags?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-1">
-            {strategy.tags.map((tag) => (
+            {(strategy.tags ?? []).map((tag) => (
               <span key={tag} className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-surface-tertiary text-slate-400">
                 <Tag className="w-2.5 h-2.5" />{tag}
               </span>

@@ -380,7 +380,7 @@ export default function StrategyDetailPage() {
 
       <Section title="Legs Structure">
         <div className="space-y-2">
-          {strategy.legs.map((leg, i) => (
+          {(strategy.legs ?? []).map((leg, i) => (
             <div key={i} className={clsx('flex items-center gap-3 px-3 py-2 rounded-lg text-xs border', leg.type === 'BUY' ? 'bg-emerald-900/10 border-emerald-800/30' : 'bg-red-900/10 border-red-800/30')}>
               <span className={clsx('font-bold text-sm', leg.type === 'BUY' ? 'text-emerald-400' : 'text-red-400')}>{leg.type}</span>
               <span className="text-slate-300">{leg.lots}× {leg.optionType}</span>
@@ -391,45 +391,49 @@ export default function StrategyDetailPage() {
         </div>
       </Section>
 
-      <Section title="Entry Rules">
-        <div className="space-y-2 text-sm">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs text-slate-500">Entry</p>
-              <p className="text-slate-300 mt-0.5 text-xs leading-relaxed">{rules.entry}</p>
+      {rules && (
+        <>
+          <Section title="Entry Rules">
+            <div className="space-y-2 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-slate-500">Entry</p>
+                  <p className="text-slate-300 mt-0.5 text-xs leading-relaxed">{rules.entry}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Strike Selection</p>
+                  <p className="text-slate-300 mt-0.5 text-xs leading-relaxed">{rules.strike_selection}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Delta</p>
+                  <p className="text-slate-300 mt-0.5 text-xs">{rules.delta}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Vega / Theta</p>
+                  <p className="text-slate-300 mt-0.5 text-xs">{rules.vega} vega, {rules.theta} theta</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-slate-500">Strike Selection</p>
-              <p className="text-slate-300 mt-0.5 text-xs leading-relaxed">{rules.strike_selection}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">Delta</p>
-              <p className="text-slate-300 mt-0.5 text-xs">{rules.delta}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">Vega / Theta</p>
-              <p className="text-slate-300 mt-0.5 text-xs">{rules.vega} vega, {rules.theta} theta</p>
-            </div>
-          </div>
-        </div>
-      </Section>
+          </Section>
 
-      <Section title="Exit Rules">
-        <p className="text-sm text-slate-300 leading-relaxed">{rules.exit}</p>
-      </Section>
+          <Section title="Exit Rules">
+            <p className="text-sm text-slate-300 leading-relaxed">{rules.exit}</p>
+          </Section>
 
-      <Section title="Risk / Reward">
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="rounded-lg bg-emerald-900/10 border border-emerald-800/30 p-3">
-            <p className="text-xs text-slate-500 mb-1">Max Profit</p>
-            <p className="text-emerald-400 font-semibold">{rules.max_profit}</p>
-          </div>
-          <div className="rounded-lg bg-red-900/10 border border-red-800/30 p-3">
-            <p className="text-xs text-slate-500 mb-1">Max Loss</p>
-            <p className="text-red-400 font-semibold">{rules.max_loss}</p>
-          </div>
-        </div>
-      </Section>
+          <Section title="Risk / Reward">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="rounded-lg bg-emerald-900/10 border border-emerald-800/30 p-3">
+                <p className="text-xs text-slate-500 mb-1">Max Profit</p>
+                <p className="text-emerald-400 font-semibold">{rules.max_profit}</p>
+              </div>
+              <div className="rounded-lg bg-red-900/10 border border-red-800/30 p-3">
+                <p className="text-xs text-slate-500 mb-1">Max Loss</p>
+                <p className="text-red-400 font-semibold">{rules.max_loss}</p>
+              </div>
+            </div>
+          </Section>
+        </>
+      )}
 
       <PayoffDiagram strategyName={strategy.name} spotOffset={spotOffset} />
 
