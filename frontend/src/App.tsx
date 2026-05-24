@@ -14,6 +14,7 @@ import PortfolioPage from '@/pages/PortfolioPage'
 import RecommendationsPage from '@/pages/RecommendationsPage'
 import StrategyLibraryPage from '@/pages/StrategyLibraryPage'
 import StrategyDetailPage from '@/pages/StrategyDetailPage'
+import HelpPage from '@/pages/HelpPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/builder" element={<ComingSoon title="Strategy Builder" />} />
           <Route path="/my-strategies" element={<ComingSoon title="My Strategies" />} />
           <Route path="/watchlist" element={<ComingSoon title="Watchlist" />} />
+          <Route path="/help" element={<HelpPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />
