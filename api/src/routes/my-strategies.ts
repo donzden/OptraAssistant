@@ -71,6 +71,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response, next: Next
     })
     res.status(201).json(row)
   } catch (err) {
+    if (err instanceof z.ZodError) return res.status(400).json({ errors: err.errors }) as unknown as void
     next(err)
   }
 })
@@ -104,6 +105,7 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response, next: Ne
     })
     res.json(updated)
   } catch (err) {
+    if (err instanceof z.ZodError) return res.status(400).json({ errors: err.errors }) as unknown as void
     next(err)
   }
 })
