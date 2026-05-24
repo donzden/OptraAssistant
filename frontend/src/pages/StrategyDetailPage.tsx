@@ -51,25 +51,111 @@ function buildPayoffData(strategyName: string, spotOffset = 0) {
   const moves = Array.from({ length: 21 }, (_, i) => center - 10 + i)
 
   const payoffFn = (s: number): number => {
-    const pct = (s - spot) / spot
+    const p = (s - spot) / spot   // signed % move from entry price
+    const a = Math.abs(p)         // absolute % move
 
-    if (strategyName.includes('Long Call')) return Math.max(0, pct * 100) - 2
-    if (strategyName.includes('Long Put')) return Math.max(0, -pct * 100) - 2
-    if (strategyName.includes('Bull Call Spread')) return Math.min(Math.max(0, pct * 100 - 1), 4) - 1.5
-    if (strategyName.includes('Bear Put Spread')) return Math.min(Math.max(0, -pct * 100 - 1), 4) - 1.5
-    if (strategyName.includes('Short Put')) return Math.min(1.5, 1.5 + Math.min(0, pct * 100))
-    if (strategyName.includes('Short Call')) return Math.min(1.5, 1.5 - Math.max(0, pct * 100))
-    if (strategyName.includes('Bull Put Spread')) return Math.min(1.5, Math.max(-4, 1.5 + Math.min(0, pct * 100 + 2)))
-    if (strategyName.includes('Bear Call Spread')) return Math.min(1.5, Math.max(-4, 1.5 - Math.max(0, pct * 100 - 2)))
-    if (strategyName.includes('Short Iron Condor') || strategyName.includes('Short Iron Butterfly') || strategyName.includes('Short Strangle')) {
-      return Math.max(-4, 2 - Math.max(0, Math.abs(pct) * 100 - 3))
+    // ── Single-leg directional ──────────────────────────────────────────────
+    if (strategyName === 'Long Call')
+      return Math.max(0, p * 100) - 2
+    if (strategyName === 'Long Put')
+      return Math.max(0, -p * 100) - 2
+    if (strategyName === 'Short Call')
+      return Math.min(2, 2 - Math.max(0, p * 100))
+    if (strategyName === 'Short Put')
+      return Math.min(2, 2 + Math.min(0, p * 100))
+    if (strategyName === 'Long Synthetic')  return p * 100
+    if (strategyName === 'Short Synthetic') return -p * 100
+
+    // ── Vertical debit spreads ──────────────────────────────────────────────
+    // Bull Call Spread: buy ATM CE, sell OTM CE — max loss below, max profit above upper
+    if (strategyName === 'Bull Call Spread') {
+      const v = p * 100
+      return v <= 0 ? -2 : v >= 5 ? 3 : -2 + v
     }
-    if (strategyName.includes('Long Iron') || strategyName.includes('Long Strangle')) {
-      return Math.min(3, Math.max(-2, Math.abs(pct) * 100 - 3))
+    // Bear Put Spread: mirror image — profits on downside move
+    if (strategyName === 'Bear Put Spread') {
+      const v = -p * 100
+      return v <= 0 ? -2 : v >= 5 ? 3 : -2 + v
     }
-    if (strategyName.includes('Long Synthetic')) return pct * 100
-    if (strategyName.includes('Short Synthetic')) return -pct * 100
-    return Math.max(-3, Math.min(3, pct * 80))
+
+    // ── Vertical credit spreads ─────────────────────────────────────────────
+    // Bull Put Spread: sell OTM PE, buy further OTM PE — profits when bullish / flat
+    if (strategyName === 'Bull Put Spread') {
+      const v = p * 100
+      return v >= -3 ? 2 : v <= -8 ? -3 : 2 + (v + 3)
+    }
+    // Bear Call Spread: sell OTM CE, buy further OTM CE — profits when bearish / flat
+    if (strategyName === 'Bear Call Spread') {
+      const v = -p * 100
+      return v >= -3 ? 2 : v <= -8 ? -3 : 2 + (v + 3)
+    }
+
+    // ── Short neutral — credit / theta decay ───────────────────────────────
+    // Short Strangle: sell OTM CE + PE, flat profit zone, then unlimited loss
+    if (strategyName === 'Short Strangle') {
+      if (a <= 0.04) return 2
+      return Math.max(-6, 2 - (a - 0.04) * 100)
+    }
+    // Short Iron Condor: like strangle but wings cap the loss
+    if (strategyName === 'Short Iron Condor') {
+      if (a <= 0.03) return 2
+      if (a <= 0.08) return 2 - (a - 0.03) * 100
+      return -3
+    }
+    // Short Iron Butterfly: sells ATM straddle — sharper tent, peak at ATM
+    if (strategyName === 'Short Iron Butterfly')
+      return Math.max(-2, 3 - a * 100 * 0.83)
+    // Double Diagonal: calendar + condor — wider flat zone, limited downside
+    if (strategyName === 'Double Diagonal') {
+      if (a <= 0.03) return 2
+      return Math.max(-1.5, 2 - (a - 0.03) * 100 * 0.9)
+    }
+
+    // ── Long neutral — debit / volatility expansion ─────────────────────────
+    // Long Strangle: buy OTM CE + PE — loss in middle, profits on big moves
+    if (strategyName === 'Long Strangle') {
+      if (a <= 0.04) return -2
+      return Math.min(5, -2 + (a - 0.04) * 100)
+    }
+    // Long Iron Condor: buy inner OTM, sell outer OTM — loss in zone, profit at wings
+    if (strategyName === 'Long Iron Condor') {
+      if (a <= 0.04) return -2
+      if (a <= 0.08) return -2 + (a - 0.04) * 100
+      return 2
+    }
+    // Long Iron Butterfly: buys ATM straddle — V-trough at ATM, rises to wing cap
+    if (strategyName === 'Long Iron Butterfly')
+      return Math.min(2, -3 + a * 100 * 0.83)
+
+    // ── Calendar spreads ───────────────────────────────────────────────────
+    // Dome shape: peak profit when spot near strike at near-expiry, limited loss at extremes
+    if (strategyName === 'Put Calendar Spread' || strategyName === 'Call Calendar Spread')
+      return Math.max(-1.5, 2.5 - a * 100 * 0.8)
+
+    // ── Ratio & complex strategies ─────────────────────────────────────────
+    // Put Ratio Back Spread: sell 1 higher PE, buy 2 lower PEs
+    // Small credit on upside, loss between strikes, growing profit on large downside
+    if (strategyName === 'Put Ratio Back Spread') {
+      if (p >= -0.01) return 0.5
+      if (p >= -0.05) return 0.5 + (p + 0.01) * 100 * 0.75
+      return Math.min(4, -2.5 + (-p - 0.05) * 100)
+    }
+    // Call Ratio Front Spread / Call Ratio Spread: buy 1 lower CE, sell 2 higher CEs
+    // Flat below, profit in sweet spot, steep loss on strong upside
+    if (strategyName === 'Call Ratio Front Spread' || strategyName === 'Call Ratio Spread') {
+      if (p <= 0.01) return 0.5
+      if (p <= 0.05) return 0.5 + (p - 0.01) * 100 * 0.625
+      return Math.max(-4, 3 - (p - 0.05) * 100 * 1.5)
+    }
+    // Breakout for Free: sell 2 OTM PEs, buy 1 OTM CE
+    // Profit on strong upside (CE), flat in middle (put premium), loss on large downside
+    if (strategyName === 'Breakout for Free') {
+      if (p >= 0) return Math.min(5, 1.5 + p * 100 * 0.8)
+      if (p >= -0.04) return 1.5
+      return Math.max(-5, 1.5 + (p + 0.04) * 100 * 0.75)
+    }
+
+    return Math.max(-3, Math.min(3, p * 80))
   }
 
   return moves.map((s) => ({
