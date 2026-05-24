@@ -11,7 +11,7 @@ import {
 } from 'recharts'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
-import { fetchStrategy, fetchStrategies, toggleFavourite, explainStrategy } from '@/api/strategies'
+import { fetchStrategy, fetchStrategies, toggleFavourite, explainStrategy, addToWatchlist, removeFromWatchlistByStrategy, fetchWatchlist } from '@/api/strategies'
 
 const CATEGORY_LABELS: Record<string, string> = {
   DIRECTIONAL: 'Directional',
@@ -167,6 +167,13 @@ export default function StrategyDetailPage() {
     .filter((s) => s.category === strategy?.category && s.id !== id)
     .slice(0, 3)
 
+  const { data: watchlist = [] } = useQuery({
+    queryKey: ['watchlist'],
+    queryFn: () => fetchWatchlist(),
+    staleTime: 5 * 60_000,
+  })
+  const isWatchlisted = watchlist.some((w) => w.strategyId === id)
+
   const favMutation = useMutation({
     mutationFn: () => toggleFavourite(id!),
     onSuccess: () => {
@@ -174,6 +181,21 @@ export default function StrategyDetailPage() {
       qc.invalidateQueries({ queryKey: ['strategies'] })
     },
     onError: () => toast.error('Could not update favourite'),
+  })
+
+  const watchlistMutation = useMutation<void>({
+    mutationFn: async () => {
+      if (isWatchlisted) {
+        await removeFromWatchlistByStrategy(id!)
+      } else {
+        await addToWatchlist(id!)
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['watchlist'] })
+      toast.success(isWatchlisted ? 'Removed from watchlist' : 'Added to watchlist')
+    },
+    onError: () => toast.error('Could not update watchlist'),
   })
 
   const handleExplain = async (detailed = false) => {
@@ -218,11 +240,15 @@ export default function StrategyDetailPage() {
           >
             <Heart className={clsx('w-4 h-4', strategy.isFavourite && 'fill-current')} />
           </button>
-          <button className="p-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white transition-colors">
-            <Bookmark className="w-4 h-4" />
+          <button
+            onClick={() => watchlistMutation.mutate()}
+            className={clsx('p-1.5 rounded-lg border transition-colors', isWatchlisted ? 'text-amber-400 border-amber-800/40 bg-amber-900/20' : 'text-slate-400 border-slate-700 hover:text-amber-400')}
+            title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+          >
+            <Bookmark className={clsx('w-4 h-4', isWatchlisted && 'fill-current')} />
           </button>
           <button
-            onClick={() => navigate('/builder')}
+            onClick={() => navigate(`/builder?templateId=${id}`)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-medium transition-colors"
           >
             <Wrench className="w-3.5 h-3.5" /> Launch in Builder

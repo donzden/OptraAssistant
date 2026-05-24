@@ -16,6 +16,9 @@ import StrategyLibraryPage from '@/pages/StrategyLibraryPage'
 import StrategyDetailPage from '@/pages/StrategyDetailPage'
 import HelpPage from '@/pages/HelpPage'
 import NotFoundPage from '@/pages/NotFoundPage'
+import StrategyBuilderPage from '@/pages/StrategyBuilderPage'
+import MyStrategiesPage from '@/pages/MyStrategiesPage'
+import WatchlistPage from '@/pages/WatchlistPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -56,10 +59,10 @@ export default function App() {
           <Route path="/strategies" element={<RecommendationsPage />} />
           <Route path="/library" element={<StrategyLibraryPage />} />
           <Route path="/library/:id" element={<StrategyDetailPage />} />
-          {/* Sprint 4+ stubs */}
-          <Route path="/builder" element={<ComingSoon title="Strategy Builder" />} />
-          <Route path="/my-strategies" element={<ComingSoon title="My Strategies" />} />
-          <Route path="/watchlist" element={<ComingSoon title="Watchlist" />} />
+          {/* Sprint 4 */}
+          <Route path="/builder" element={<StrategyBuilderPage />} />
+          <Route path="/my-strategies" element={<MyStrategiesPage />} />
+          <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="/help" element={<HelpPage />} />
         </Route>
 
@@ -69,12 +72,3 @@ export default function App() {
   )
 }
 
-function ComingSoon({ title }: { title: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
-      <div className="text-4xl">🚧</div>
-      <h2 className="text-xl font-semibold text-slate-200">{title}</h2>
-      <p className="text-sm">Coming in Sprint 3+</p>
-    </div>
-  )
-}

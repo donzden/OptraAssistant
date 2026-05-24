@@ -51,6 +51,8 @@ model User {
   positions        Position[]
   kiteOAuthToken   KiteOAuthToken?
   favourites       UserStrategyFavourite[]
+  userStrategies   UserStrategy[]
+  watchlistItems   WatchlistItem[]
 
   @@index([email])
   @@map("users")
@@ -187,9 +189,52 @@ model Strategy {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
-  favourites  UserStrategyFavourite[]
+  favourites     UserStrategyFavourite[]
+  watchlistItems WatchlistItem[]
 
   @@map("strategies")
+}
+
+model UserStrategy {
+  id               String           @id @default(uuid())
+  userId           String
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  category         StrategyCategory @default(NON_DIRECTIONAL)
+  type             StrategyType     @default(VARIES)
+  riskLevel        RiskLevel        @default(MODERATE)
+  outlook          String[]         @default([])
+  ivLevels         IVLevel[]        @default([])
+  legs             Json
+  notes            String?
+  tags             String[]         @default([])
+  isTemplate       Boolean          @default(false)
+  sourceStrategyId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_strategies")
+}
+
+model WatchlistItem {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategyId     String
+  strategy       Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  notes          String?
+  alertThreshold Float    @default(75)
+  alertEnabled   Boolean  @default(false)
+  lastMatchPct   Float?
+  lastCheckedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, strategyId])
+  @@map("watchlist_items")
 }
 
 model UserStrategyFavourite {

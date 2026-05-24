@@ -93,3 +93,50 @@ export interface RecommendResponse {
   ranked: ScoredStrategy[]
   total: number
 }
+
+export interface BuilderLeg {
+  id: string
+  type: 'BUY' | 'SELL'
+  optionType: 'CE' | 'PE'
+  strike: number | ''
+  lots: number
+  premium: number | ''
+  iv: number | null
+  delta: number | null
+  gamma: number | null
+  theta: number | null
+  vega: number | null
+}
+
+export interface UserStrategy {
+  id: string
+  userId: string
+  name: string
+  description?: string
+  category: StrategyCategory
+  type: StrategyType
+  riskLevel: RiskLevel
+  outlook: Outlook[]
+  ivLevels: IVLevel[]
+  legs: BuilderLeg[]
+  notes?: string
+  tags: string[]
+  isTemplate: boolean
+  sourceStrategyId?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WatchlistItem {
+  id: string
+  userId: string
+  strategyId: string
+  strategy: Strategy
+  notes?: string
+  alertThreshold: number
+  alertEnabled: boolean
+  lastMatchPct?: number | null
+  lastCheckedAt?: string
+  createdAt: string
+  updatedAt: string
+}
