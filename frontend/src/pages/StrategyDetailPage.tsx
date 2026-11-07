@@ -102,8 +102,8 @@ function buildPayoffData(strategyName: string, spotOffset = 0) {
       if (a <= 0.08) return 2 - (a - 0.03) * 100
       return -3
     }
-    // Short Iron Butterfly: sells ATM straddle — sharper tent, peak at ATM
-    if (strategyName === 'Short Iron Butterfly')
+    // Iron Butterfly: sells ATM straddle — sharper tent, peak at ATM
+    if (strategyName === 'Iron Butterfly')
       return Math.max(-2, 3 - a * 100 * 0.83)
     // Double Diagonal: calendar + condor — wider flat zone, limited downside
     if (strategyName === 'Double Diagonal') {
@@ -123,10 +123,6 @@ function buildPayoffData(strategyName: string, spotOffset = 0) {
       if (a <= 0.08) return -2 + (a - 0.04) * 100
       return 2
     }
-    // Long Iron Butterfly: buys ATM straddle — V-trough at ATM, rises to wing cap
-    if (strategyName === 'Long Iron Butterfly')
-      return Math.min(2, -3 + a * 100 * 0.83)
-
     // ── Calendar spreads ───────────────────────────────────────────────────
     // Dome shape: peak profit when spot near strike at near-expiry, limited loss at extremes
     if (strategyName === 'Put Calendar Spread' || strategyName === 'Call Calendar Spread')
