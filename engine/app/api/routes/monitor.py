@@ -2,21 +2,15 @@ import random
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.services.greeks import calculate_greeks
 from app.services.exit_signals import evaluate_rules, get_adjustment_suggestion, get_post_mortem_explanation
 from app.core.config import settings
+from app.core.security import require_internal_key
 
-router = APIRouter()
-
-_KEY = "dev-internal-key"
-
-
-def _verify(x_internal_key: str | None) -> None:
-    if x_internal_key != _KEY:
-        raise HTTPException(status_code=403, detail="Forbidden")
+router = APIRouter(dependencies=[Depends(require_internal_key)])
 
 
 class LegInput(BaseModel):
@@ -54,8 +48,7 @@ class CheckRulesRequest(BaseModel):
 
 
 @router.post("/monitor/check-rules")
-def monitor_check_rules(body: CheckRulesRequest, x_internal_key: str = Header(None)):
-    _verify(x_internal_key)
+def monitor_check_rules(body: CheckRulesRequest):
     triggered = evaluate_rules(body.snapshot, body.exit_rules, body.expiry)
     results = []
     for t in triggered:
@@ -77,8 +70,7 @@ class PostMortemRequest(BaseModel):
 
 
 @router.post("/monitor/post-mortem")
-def monitor_post_mortem(body: PostMortemRequest, x_internal_key: str = Header(None)):
-    _verify(x_internal_key)
+def monitor_post_mortem(body: PostMortemRequest):
     explanation = get_post_mortem_explanation(
         body.strategy_name, body.instrument, body.entry_date,
         body.closed_at, body.final_pnl, body.legs, settings.anthropic_api_key,
@@ -87,9 +79,7 @@ def monitor_post_mortem(body: PostMortemRequest, x_internal_key: str = Header(No
 
 
 @router.post("/monitor/snapshot")
-def monitor_snapshot(body: SnapshotRequest, x_internal_key: str = Header(None)):
-    _verify(x_internal_key)
-
+def monitor_snapshot(body: SnapshotRequest):
     leg_results = []
     net_pnl = net_delta = net_theta = net_gamma = net_vega = 0.0
 

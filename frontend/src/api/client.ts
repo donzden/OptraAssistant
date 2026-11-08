@@ -17,13 +17,22 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// Public auth endpoints: a 401 here means "wrong credentials / invalid request",
+// not "access token expired" — attempting a refresh (and redirecting on its
+// failure) would wipe out the caller's own error message for no reason.
+const PUBLIC_AUTH_PATHS = [
+  '/auth/login', '/auth/register', '/auth/refresh', '/auth/verify-email',
+  '/auth/resend-email-otp', '/auth/forgot-password', '/auth/reset-password',
+]
+
 // Auto-refresh on 401, logout on second failure
 let refreshing = false
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config
-    if (error.response?.status === 401 && !original._retry && !refreshing) {
+    const isPublicAuthRequest = PUBLIC_AUTH_PATHS.some((p) => original?.url?.includes(p))
+    if (error.response?.status === 401 && !isPublicAuthRequest && !original._retry && !refreshing) {
       original._retry = true
       refreshing = true
       try {
