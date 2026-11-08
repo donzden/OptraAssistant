@@ -33,6 +33,7 @@ function newLeg(): BuilderLeg {
     gamma: null,
     theta: null,
     vega: null,
+    expiry: 'near',
   }
 }
 
@@ -93,11 +94,13 @@ function fmtInr(n: number) {
 function LegRow({
   leg,
   strikes,
+  showExpiryToggle,
   onUpdate,
   onRemove,
 }: {
   leg: BuilderLeg
   strikes: OptionStrike[]
+  showExpiryToggle: boolean
   onUpdate: (updates: Partial<BuilderLeg>) => void
   onRemove: () => void
 }) {
@@ -135,9 +138,14 @@ function LegRow({
     })
   }
 
+  const handleExpiryChange = (expiry: 'near' | 'far') => {
+    if (expiry === leg.expiry) return
+    onUpdate({ expiry, strike: '', premium: '', iv: null, delta: null, gamma: null, theta: null, vega: null })
+  }
+
   return (
     <div className={clsx(
-      'grid grid-cols-[auto_auto_1fr_80px_80px_auto] gap-2 items-center px-3 py-2 rounded-lg border text-sm',
+      'grid grid-cols-[auto_auto_auto_1fr_80px_80px_auto] gap-2 items-center px-3 py-2 rounded-lg border text-sm',
       leg.type === 'BUY' ? 'bg-emerald-900/10 border-emerald-800/30' : 'bg-red-900/10 border-red-800/30',
     )}>
       {/* BUY / SELL */}
@@ -155,6 +163,23 @@ function LegRow({
           >{t}</button>
         ))}
       </div>
+
+      {/* Near / Far expiry */}
+      {showExpiryToggle ? (
+        <div className="flex rounded-lg overflow-hidden border border-slate-700 shrink-0">
+          {(['near', 'far'] as const).map((e) => (
+            <button
+              key={e}
+              onClick={() => handleExpiryChange(e)}
+              title={e === 'near' ? 'Near-month expiry' : 'Far-month expiry'}
+              className={clsx(
+                'px-2 py-1 text-xs font-semibold transition-colors',
+                leg.expiry === e ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white',
+              )}
+            >{e === 'near' ? 'N' : 'F'}</button>
+          ))}
+        </div>
+      ) : <div />}
 
       {/* CE / PE */}
       <div className="flex rounded-lg overflow-hidden border border-slate-700 shrink-0">
@@ -410,6 +435,7 @@ export default function StrategyBuilderPage() {
 
   const [instrument, setInstrument] = useState('NIFTY')
   const [expiry, setExpiry] = useState<string | undefined>(undefined)
+  const [farExpiry, setFarExpiry] = useState<string | undefined>(undefined)
   const [legs, setLegs] = useState<BuilderLeg[]>([])
   const [showSave, setShowSave] = useState(false)
   const [showTemplate, setShowTemplate] = useState(false)
@@ -417,18 +443,35 @@ export default function StrategyBuilderPage() {
   const lotSize = LOT_SIZES[instrument] ?? 50
   const stepSize = STEP_SIZES[instrument] ?? 50
 
-  const { data: expiries = [], isLoading: expiriesLoading, isError: expiriesError } = useQuery({
+  const {
+    data: expiries = [],
+    isLoading: expiriesLoading,
+    isError: expiriesError,
+    refetch: refetchExpiries,
+  } = useQuery({
     queryKey: ['expiries', instrument],
     queryFn: () => fetchExpiries(instrument),
     staleTime: 5 * 60_000,
+    retry: 6,
+    retryDelay: (attempt) => Math.min(1_500 * 2 ** attempt, 15_000),
   })
 
   const selectedExpiry = expiry ?? expiries[0]
+  const selectedFarExpiry = farExpiry ?? expiries.find((e) => e !== selectedExpiry) ?? expiries[1]
+  const usesFarExpiry = legs.some((l) => l.expiry === 'far')
+  const hasMultipleExpiries = expiries.length > 1
 
   const { data: chain, isFetching: chainFetching } = useQuery({
     queryKey: ['chain', instrument, selectedExpiry],
     queryFn: () => fetchOptionsChain(instrument, selectedExpiry ?? ''),
     enabled: !!selectedExpiry,
+    staleTime: 60_000,
+  })
+
+  const { data: farChain, isFetching: farChainFetching } = useQuery({
+    queryKey: ['chain', instrument, selectedFarExpiry],
+    queryFn: () => fetchOptionsChain(instrument, selectedFarExpiry ?? ''),
+    enabled: !!selectedFarExpiry && usesFarExpiry,
     staleTime: 60_000,
   })
 
@@ -452,7 +495,8 @@ export default function StrategyBuilderPage() {
     }
   }, [editId])
 
-  const strikes = chain?.strikes ?? []
+  const strikesNear = chain?.strikes ?? []
+  const strikesFar = farChain?.strikes ?? []
   const spotPrice = chain?.spot_price ?? 0
   const atmStrike = chain?.atm_strike ?? 0
 
@@ -492,6 +536,7 @@ export default function StrategyBuilderPage() {
       gamma: null,
       theta: null,
       vega: null,
+      expiry: sl.expiry ?? 'near',
     }))
     setLegs(built)
     setShowTemplate(false)
@@ -549,23 +594,47 @@ export default function StrategyBuilderPage() {
             >{ins}</button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-slate-400">Expiry:</span>
-          <div className="relative">
-            <select
-              value={selectedExpiry ?? ''}
-              onChange={(e) => setExpiry(e.target.value)}
-              disabled={expiriesLoading || expiries.length === 0}
-              className="bg-surface-tertiary border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white pr-7 appearance-none focus:outline-none focus:border-primary-500"
+          {expiriesError && !expiriesLoading ? (
+            <button
+              onClick={() => refetchExpiries()}
+              className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 border border-red-800/50 rounded-lg px-2.5 py-1.5 bg-red-900/10 transition-colors"
             >
-              {expiriesLoading && <option value="">Loading…</option>}
-              {!expiriesLoading && expiriesError && <option value="">Error loading expiries</option>}
-              {!expiriesLoading && !expiriesError && expiries.length === 0 && <option value="">No expiries available</option>}
-              {expiries.map((e) => <option key={e} value={e}>{e}</option>)}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
-          </div>
-          {chainFetching && <RefreshCw className="w-3.5 h-3.5 text-slate-400 animate-spin" />}
+              <RefreshCw className="w-3 h-3" /> Retry
+            </button>
+          ) : (
+            <div className="relative">
+              <select
+                value={selectedExpiry ?? ''}
+                onChange={(e) => setExpiry(e.target.value)}
+                disabled={expiriesLoading || expiries.length === 0}
+                className="bg-surface-tertiary border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white pr-7 appearance-none focus:outline-none focus:border-primary-500"
+              >
+                {expiriesLoading && <option value="">Loading…</option>}
+                {!expiriesLoading && !expiriesError && expiries.length === 0 && <option value="">No expiries available</option>}
+                {expiries.map((e) => <option key={e} value={e}>{e}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
+            </div>
+          )}
+          {usesFarExpiry && !expiriesError && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">Far Expiry:</span>
+              <div className="relative">
+                <select
+                  value={selectedFarExpiry ?? ''}
+                  onChange={(e) => setFarExpiry(e.target.value)}
+                  disabled={expiriesLoading || expiries.length === 0}
+                  className="bg-surface-tertiary border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white pr-7 appearance-none focus:outline-none focus:border-primary-500"
+                >
+                  {expiries.map((e) => <option key={e} value={e}>{e}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
+              </div>
+            </div>
+          )}
+          {(chainFetching || (usesFarExpiry && farChainFetching)) && <RefreshCw className="w-3.5 h-3.5 text-slate-400 animate-spin" />}
           {chain && (
             <span className="text-xs text-slate-400">
               Spot: <span className="text-white font-medium">{chain.spot_price.toLocaleString('en-IN')}</span>
@@ -581,8 +650,8 @@ export default function StrategyBuilderPage() {
         <div className="lg:col-span-3 space-y-3">
           {/* Column headers */}
           {legs.length > 0 && (
-            <div className="grid grid-cols-[auto_auto_1fr_80px_80px_auto] gap-2 px-3 text-[10px] text-slate-500">
-              <span>TYPE</span><span>OPT</span><span>STRIKE</span><span className="text-center">LOTS</span><span className="text-center">PREM</span><span />
+            <div className="grid grid-cols-[auto_auto_auto_1fr_80px_80px_auto] gap-2 px-3 text-[10px] text-slate-500">
+              <span>TYPE</span><span>{hasMultipleExpiries ? 'EXP' : ''}</span><span>OPT</span><span>STRIKE</span><span className="text-center">LOTS</span><span className="text-center">PREM</span><span />
             </div>
           )}
 
@@ -592,7 +661,8 @@ export default function StrategyBuilderPage() {
               <LegRow
                 key={leg.id}
                 leg={leg}
-                strikes={strikes}
+                strikes={leg.expiry === 'far' ? strikesFar : strikesNear}
+                showExpiryToggle={hasMultipleExpiries}
                 onUpdate={(updates) => updateLeg(leg.id, updates)}
                 onRemove={() => removeLeg(leg.id)}
               />
@@ -743,7 +813,7 @@ export default function StrategyBuilderPage() {
                       : 'text-red-400 bg-red-900/10 border-red-800/30',
                   )}
                 >
-                  {l.type} {l.lots}× {l.optionType} {l.strike || '?'}
+                  {l.type} {l.lots}× {l.optionType} {l.strike || '?'}{hasMultipleExpiries && ` (${l.expiry === 'far' ? 'Far' : 'Near'})`}
                 </span>
               ))}
             </div>

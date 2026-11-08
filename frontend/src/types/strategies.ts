@@ -106,6 +106,7 @@ export interface BuilderLeg {
   gamma: number | null
   theta: number | null
   vega: number | null
+  expiry: 'near' | 'far'
 }
 
 export interface UserStrategy {

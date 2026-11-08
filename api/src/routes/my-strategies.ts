@@ -18,6 +18,7 @@ const legSchema = z.object({
   gamma: z.number().nullable().optional(),
   theta: z.number().nullable().optional(),
   vega: z.number().nullable().optional(),
+  expiry: z.enum(['near', 'far']).optional(),
 })
 
 const strategyBodySchema = z.object({
