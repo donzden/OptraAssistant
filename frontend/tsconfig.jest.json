@@ -4,6 +4,8 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "allowImportingTsExtensions": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "paths": {}
   }
 }
